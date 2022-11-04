@@ -23,7 +23,7 @@ import sqlite3
 
 connection_obj = sqlite3.Connection("maryland.db")
 cursor_obj = connection_obj.cursor()
-index_of_street = 0
+index_of_street_db = 0
 
 use_restrict_list = ["COMMERCIAL", "INDUSTRIAL", "AGRICULTURE", "APARTMENT", "CONDOMINIUM", "COMMERCIAL CONDOMINIUM"]
 
@@ -351,7 +351,8 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                 try:
                     print(f"street name : {street} search start")
                     current_index_of_street = search_terms.index(street)
-                    index_of_street += current_index_of_street
+                    # index_of_street += current_index_of_street
+                    index_of_street_db += current_index_of_street
                     driver.find_element(By.ID, STREET_NAME_ID).send_keys(street)
                     driver.find_element(By.CLASS_NAME, CONTINUE_CLASS).click()
                     try:
@@ -389,7 +390,7 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             while skipped_count <= page_skips:
                                 pages_in_page = sdat.last_page(driver)
                                 pages_in_page = int(pages_in_page)
-                                data = get_data_in_all_pages(data, driver, pages_in_page, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street, page, start_row)
+                                data = get_data_in_all_pages(data, driver, pages_in_page, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street_db, page, start_row)
                                 time.sleep(1)
                                 if skipped_count == page_skips:
                                     print(f"Skips completed for {street}.")
