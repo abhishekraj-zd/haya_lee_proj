@@ -272,7 +272,7 @@ def get_data(driver, county):
         table = "PG_TABLE"
 
     maryland_sql = f'''INSERT INTO {table} 
-                        ("district","account_no","owner_name_1_last_name","owner_name_1_first_name","owner_name_2_last_name","owner_name_2_first_name","mailing","premises","use","principal_residence","deed_reference","map_id","parcel","block_id","subdivision","plat_id","structure_built","living_area","land_area","basement","finished_basement_area","land_value","improvement_value","assessed_value","seller","date","price","transfer_type","homestead_application_status","homeowner_tax_credit","legal_description","stories","bath")
+                        ("district","account","owner_1_first_name","owner_1_last_name","owner_2_first_name","owner_2_last_name","mailing","premises","use","principal_residence","deed_reference","map_id","parcel","block","subdivision","plat_id","structure_built","living_area","land_area","basement","finished_basement_area","land_value","improvement_value","assessed_value","seller","date","price","transfer_type","homestead_application_status","homeowner_tax_credit","legal_description","stories","bath")
                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'''
     maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath)
     if use.upper() not in use_restrict_list:
@@ -281,8 +281,8 @@ def get_data(driver, county):
         print("===================== DATA ADDED TO DATABASE =============================")
     return district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath
 
-def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, street, page):
-    first_row, last_row, rows = sdat.find_row_details(driver, 0)
+def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, street, page, start_row):
+    first_row, last_row, rows = sdat.find_row_details(driver, start_row)
     for i in range(first_row, last_row+1):
     # for i in range(first_row, first_row+5):
         try:
@@ -308,10 +308,10 @@ def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, s
         sdat.go_back(driver, DETAILS_PREVIOUS_ID)
     return data, last_row
 
-def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search_term, sleeptime, county, path, index_of_street):
+def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search_term, sleeptime, county, path, index_of_street, current_page, start_row):
     total_pages = int(total_pages)
-    current_page = sdat.current_page(driver)
-    current_page = int(current_page)
+    # current_page = sdat.current_page(driver)
+    # current_page = int(current_page)
     if current_page > 1 and current_page < 10:
         current_page = 11
     elif current_page > 10:
@@ -321,7 +321,7 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
     print(f"CURRENT PAGE : {current_page}")
 
     while total_pages >= current_page:
-        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, search_term,current_page)
+        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, search_term,current_page, start_row)
         print(f"'{search_term}' page {current_page} completed with {last_row} rows..")
         current_page += 1
         if current_page > total_pages:
@@ -342,7 +342,7 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
                     return data
     return data
 
-def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street):
+def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street, page, start_row):
     searched_terms = []
 
     try: 
@@ -389,7 +389,7 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             while skipped_count <= page_skips:
                                 pages_in_page = sdat.last_page(driver)
                                 pages_in_page = int(pages_in_page)
-                                data = get_data_in_all_pages(data, driver, pages_in_page, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street)
+                                data = get_data_in_all_pages(data, driver, pages_in_page, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street, page, start_row)
                                 time.sleep(1)
                                 if skipped_count == page_skips:
                                     print(f"Skips completed for {street}.")
@@ -404,10 +404,10 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                                     time.sleep(10)
                         else:
                             print(f"{street} has {total_pages} pages. Proceeding to scrape all.")
-                            data = get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street)
+                            data = get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street, page, start_row)
                     else:
                         print(f"{street} has only one page. Proceeding to scrape all data.")
-                        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, street, 1)
+                        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, street, page, start_row)
                         print(f"{street} completed with {last_row} rows.")
                         time.sleep(1)
                     searched_terms.append(street)
@@ -416,7 +416,13 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                 except Exception as e:
                     print(e)
-
+                    cursor_obj.execute('''SELECT * FROM RETRY_TABLE ORDER BY created_at DESC LIMIT 1;''')
+                    data = cursor_obj.fetchone()
+                    county_db = data[0]
+                    index_of_street_db = data[2]
+                    current_page_db = data[4]
+                    last_row_db = data[5]
+                    main_search(search_terms[index_of_street_db:], county_db, path, index_of_street_db, current_page_db, last_row_db)
 
     except Exception as e:
         print(e)
@@ -425,7 +431,7 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
         return data, searched_terms
 
 #%% 
-def main_search(search_terms, county, path):
+def main_search(search_terms, county, path, index_of_street, page, start_row):
     start = timeit.default_timer()
     # searched_terms = []
     driver = sdat.get_driver(DRIVER_PATH, user_agent_list)
@@ -472,7 +478,7 @@ def main_search(search_terms, county, path):
                                  'stories',
                                  'bath']
                         )
-    data, searched_terms = loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street)
+    data, searched_terms = loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street, page, start_row)
 
     stop = timeit.default_timer()
     execution_time = stop - start
@@ -481,6 +487,14 @@ def main_search(search_terms, county, path):
     #removing worker from {} from f string
     print(f"{len(searched_terms)} out of {len(search_terms)} terms completed in {str(execution_time)} seconds.")
     driver.close()
+
+def func_check_site_down(driver):
+    check = True
+    while check:
+        if "may be unavailable before 7:00 AM for maintenance" in driver.find_element(By.CSS_SELECTOR, "p > strong").text :
+            time.sleep(900)  # SLEEP FOR 15 MINUTES
+        else:
+            check = False
 
 #%% 
 if __name__ == '__main__':
@@ -515,7 +529,7 @@ if __name__ == '__main__':
     #pass arg_last_page & arg_worker in f string using {}
     print(f"Started scraping {COUNTIES[arg_county_index]} for worker arg_worker from search term arg_last_page onwards.")
     # main_search(search_terms[:10], arg_county_index, path) # Testing purpose
-    main_search(search_terms, arg_county_index, path)
+    main_search(search_terms[11:], arg_county_index, path, 0, 1, 0)
     # main_search(["allard","apple"],arg_county_index, path)
 # main_search(np.array_split(search_terms, 10)[arg_worker][arg_last_page:], arg_worker, arg_county_index, path)
 #     data_merge_func(arg_county_index, "sdat")
