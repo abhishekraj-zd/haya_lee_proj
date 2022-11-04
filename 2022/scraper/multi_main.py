@@ -277,6 +277,7 @@ def get_data(driver, county):
     maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath)
     if use.upper() not in use_restrict_list:
         cursor_obj.execute(maryland_sql, maryland_data)
+        connection_obj.commit()
         print("===================== DATA ADDED TO DATABASE =============================")
     return district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath
 
@@ -302,6 +303,7 @@ def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, s
             print(f"No data for {i}. Skipping to next row..")
             continue
         cursor_obj.execute('''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''', (county, COUNTIES[county], index_of_street, street, page, i))
+        connection_obj.commit()
         print("============================= RETRY_INFO ADDED TO DATABASE ============================")
         sdat.go_back(driver, DETAILS_PREVIOUS_ID)
     return data, last_row
@@ -414,7 +416,7 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                 except Exception as e:
                     print(e)
-                    
+
 
     except Exception as e:
         print(e)
