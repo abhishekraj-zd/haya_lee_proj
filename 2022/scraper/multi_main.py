@@ -302,7 +302,8 @@ def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, s
             print(e)
             print(f"No data for {i}. Skipping to next row..")
             continue
-        cursor_obj.execute('''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''', (county, COUNTIES[county], index_of_street, street, page, i))
+        cursor_obj.execute('''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''', (county, COUNTIES[county], index_of_street-1, street, page, i))
+        print(f" the query string is : {(county, COUNTIES[county], index_of_street-1, street, page, i)}")
         connection_obj.commit()
         print("============================= RETRY_INFO ADDED TO DATABASE ============================")
         sdat.go_back(driver, DETAILS_PREVIOUS_ID)
@@ -350,13 +351,12 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
             with catchtime() as t:
                 try:
                     print(f"street name : {street} search start")
-                    current_index_of_street = search_terms.index(street)
-                    print(f"=============== {current_index_of_street}")
-                    print(f"%%%%%%%% {type(current_index_of_street)}")
-                    print(f"============ {index_of_street_db}")
-                    print(f"************** {type(index_of_street_db)}")
+                    # current_index_of_street = search_terms.index(street)
+                    # print(f"=============== {current_index_of_street}")
+                    # print(f"%%%%%%%% {type(current_index_of_street)}")
+                    # print(f"============ {index_of_street_db}")
+                    # print(f"************** {type(index_of_street_db)}")
                     # index_of_street += current_index_of_street
-                    index_of_street_db += 1
                     driver.find_element(By.ID, STREET_NAME_ID).send_keys(street)
                     driver.find_element(By.CLASS_NAME, CONTINUE_CLASS).click()
                     try:
@@ -376,6 +376,16 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             time.sleep(5)
                             WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                             time.sleep(5)
+                            cursor_obj.execute(
+                                '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''',
+                                (county, COUNTIES[county], index_of_street_db, street, page, 0))
+                            print(
+                                f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, 0)}")
+
+                            connection_obj.commit()
+                            index_of_street_db += 1
+                            print(
+                                "============================= RETRY_INFO ADDED TO DATABASE ============================")
                             continue
                         except:
                             print(f" ONLY ONE RESULT FOUND FOR {street}. Proceeding to scrape data")
@@ -390,31 +400,19 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             time.sleep(5)
                             WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                             time.sleep(5)
+                            cursor_obj.execute(
+                                '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''',
+                                (county, COUNTIES[county], index_of_street_db, street, page, 0))
+                            print(
+                                f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, 0)}")
+                            connection_obj.commit()
+                            index_of_street_db += 1
+                            print(
+                                "============================= RETRY_INFO ADDED TO DATABASE ============================")
                             continue
-                        # if street != "allard" and street != "anne chambers" :
-                        #     print(f"No results found for {street}. Moving on..")
-                        #     searched_terms.append(street)
-                        #     sdat.go_back(driver, RESULT_PREVIOUS_ID)
-                        #     time.sleep(5)
-                        #     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
-                        #     time.sleep(5)
-                        #     continue
-                        # else:
-                        #     use_check = get_data(driver, county)[8]
-                        #     if use_check.upper() not in use_restrict_list:
-                        #         print(data)
-                        #         print(len(data))
-                        #         data.loc[len(data)] = get_data(driver, county)
-                        #     else:
-                        #         pass
-                        #     sdat.go_back(driver, DETAILS_PREVIOUS_ID)
-                        #     time.sleep(5)
-                        #     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
-                        #     time.sleep(5)
-                        #     continue
-
                     total_pages = sdat.page_skips(driver, 10)
                     if int(total_pages) > 0:
+                        index_of_street_db += 1
                         page_skips = sdat.roundup(int(total_pages) - 1)/10 - 1
                         if page_skips > 0:
                             print(f"'{street}' has more than 10 pages. Proceeding to scrape all {total_pages} pages with {page_skips} page skips.")
@@ -438,9 +436,11 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                                     time.sleep(10)
                         else:
                             print(f"{street} has {total_pages} pages. Proceeding to scrape all.")
+                            index_of_street_db += 1
                             data = get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street_db, page, start_row)
                     else:
                         print(f"{street} has only one page. Proceeding to scrape all data.")
+                        index_of_street_db += 1
                         data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street_db, street, page, start_row)
                         print(f"{street} completed with {last_row} rows.")
                         time.sleep(1)
@@ -450,7 +450,7 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                 except Exception as e:
                     print(e)
-                    cursor_obj.execute('''SELECT * FROM RETRY_TABLE ORDER BY created_at DESC LIMIT 1;''')
+                    cursor_obj.execute(f'''SELECT * FROM RETRY_TABLE WHERE county_name = {COUNTIES[county]} ORDER BY created_at DESC LIMIT 1;''')
                     data = cursor_obj.fetchone()
                     county_db = data[0]
                     index_of_street_db = data[2]
