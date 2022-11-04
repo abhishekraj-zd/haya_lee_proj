@@ -23,7 +23,7 @@ import sqlite3
 
 connection_obj = sqlite3.Connection("maryland.db")
 cursor_obj = connection_obj.cursor()
-index_of_street_db = 0
+# index_of_street_db = 0
 
 use_restrict_list = ["COMMERCIAL", "INDUSTRIAL", "AGRICULTURE", "APARTMENT", "CONDOMINIUM", "COMMERCIAL CONDOMINIUM"]
 
@@ -291,7 +291,7 @@ def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, s
             time.sleep(2)
             use_check = get_data(driver,county)[8]
             if use_check.upper() not in use_restrict_list:
-                print(data)
+                # print(data)
                 print(len(data))
                 data.loc[len(data)] = get_data(driver,county)
             else:
@@ -342,7 +342,7 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
                     return data
     return data
 
-def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street, page, start_row):
+def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street_db, page, start_row):
     searched_terms = []
 
     try: 
@@ -351,14 +351,25 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                 try:
                     print(f"street name : {street} search start")
                     current_index_of_street = search_terms.index(street)
+                    print(f"=============== {current_index_of_street}")
+                    print(f"%%%%%%%% {type(current_index_of_street)}")
+                    print(f"============ {index_of_street_db}")
+                    print(f"************** {type(index_of_street_db)}")
                     # index_of_street += current_index_of_street
-                    index_of_street_db += current_index_of_street
+                    index_of_street_db += 1
                     driver.find_element(By.ID, STREET_NAME_ID).send_keys(street)
                     driver.find_element(By.CLASS_NAME, CONTINUE_CLASS).click()
                     try:
                         WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSearchResult_gv_SearchResult_txtOwnerName_1')))
                     except (NoSuchElementException, TimeoutException, ElementNotInteractableException):
-                        if street != "allard" and street != "anne chambers" :
+                        # print(f"No results found for {street}. Moving on..")
+                        # searched_terms.append(street)
+                        # sdat.go_back(driver, RESULT_PREVIOUS_ID)
+                        # time.sleep(5)
+                        # WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                        # time.sleep(5)
+                        # continue
+                        try:
                             print(f"No results found for {street}. Moving on..")
                             searched_terms.append(street)
                             sdat.go_back(driver, RESULT_PREVIOUS_ID)
@@ -366,10 +377,11 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                             time.sleep(5)
                             continue
-                        else:
+                        except:
+                            print(f" ONLY ONE RESULT FOUND FOR {street}. Proceeding to scrape data")
                             use_check = get_data(driver, county)[8]
                             if use_check.upper() not in use_restrict_list:
-                                print(data)
+                                # print(data)
                                 print(len(data))
                                 data.loc[len(data)] = get_data(driver, county)
                             else:
@@ -379,6 +391,27 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                             time.sleep(5)
                             continue
+                        # if street != "allard" and street != "anne chambers" :
+                        #     print(f"No results found for {street}. Moving on..")
+                        #     searched_terms.append(street)
+                        #     sdat.go_back(driver, RESULT_PREVIOUS_ID)
+                        #     time.sleep(5)
+                        #     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                        #     time.sleep(5)
+                        #     continue
+                        # else:
+                        #     use_check = get_data(driver, county)[8]
+                        #     if use_check.upper() not in use_restrict_list:
+                        #         print(data)
+                        #         print(len(data))
+                        #         data.loc[len(data)] = get_data(driver, county)
+                        #     else:
+                        #         pass
+                        #     sdat.go_back(driver, DETAILS_PREVIOUS_ID)
+                        #     time.sleep(5)
+                        #     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                        #     time.sleep(5)
+                        #     continue
 
                     total_pages = sdat.page_skips(driver, 10)
                     if int(total_pages) > 0:
@@ -405,10 +438,10 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                                     time.sleep(10)
                         else:
                             print(f"{street} has {total_pages} pages. Proceeding to scrape all.")
-                            data = get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street, page, start_row)
+                            data = get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street_db, page, start_row)
                     else:
                         print(f"{street} has only one page. Proceeding to scrape all data.")
-                        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, street, page, start_row)
+                        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street_db, street, page, start_row)
                         print(f"{street} completed with {last_row} rows.")
                         time.sleep(1)
                     searched_terms.append(street)
@@ -423,7 +456,8 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                     index_of_street_db = data[2]
                     current_page_db = data[4]
                     last_row_db = data[5]
-                    main_search(search_terms[index_of_street_db:], county_db, path, index_of_street_db, current_page_db, last_row_db)
+                    main_search(search_terms[int(index_of_street_db):], int(county_db), path, int(index_of_street_db),
+                                int(current_page_db), int(last_row_db))
 
     except Exception as e:
         print(e)
@@ -530,7 +564,17 @@ if __name__ == '__main__':
     #pass arg_last_page & arg_worker in f string using {}
     print(f"Started scraping {COUNTIES[arg_county_index]} for worker arg_worker from search term arg_last_page onwards.")
     # main_search(search_terms[:10], arg_county_index, path) # Testing purpose
-    main_search(search_terms[11:], arg_county_index, path, 0, 1, 0)
+    cursor_obj.execute('''SELECT * FROM RETRY_TABLE ORDER BY created_at DESC LIMIT 1;''')
+    data = cursor_obj.fetchone()
+    county_db = data[0]
+    # index_of_street_db = data[2]
+    index_of_street_db = search_terms.index("a sw")
+    print(index_of_street_db)
+    print(search_terms[68])
+    current_page_db = data[4]
+    last_row_db = data[5]
+    main_search(search_terms[int(index_of_street_db):], int(county_db), path, int(index_of_street_db), int(current_page_db), int(last_row_db))
+    # main_search(search_terms[11:], arg_county_index, path, 0, 1, 0)
     # main_search(["allard","apple"],arg_county_index, path)
 # main_search(np.array_split(search_terms, 10)[arg_worker][arg_last_page:], arg_worker, arg_county_index, path)
 #     data_merge_func(arg_county_index, "sdat")
