@@ -19,6 +19,11 @@ import re
 import timeit
 from functions import sdat_scraper as sdat
 from selenium.webdriver.common.keys import Keys
+import sqlite3
+
+connection_obj = sqlite3.Connection("maryland.db")
+cursor_obj = connection_obj.cursor()
+index_of_street = 0
 
 use_restrict_list = ["COMMERCIAL", "INDUSTRIAL", "AGRICULTURE", "APARTMENT", "CONDOMINIUM", "COMMERCIAL CONDOMINIUM"]
 
@@ -82,8 +87,21 @@ HOMEOWNER_TAX_CREDIT = 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_u
 LEGAL_DESCRIPTION = "cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch_lblLegalDescription_0"
 STORIES = "cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch_Label22_0"
 BATH = "cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch_Label34_0"
-#%% 
-def get_data(driver):
+#%%
+
+from time import perf_counter
+
+class catchtime:
+    def __enter__(self):
+        self.time = perf_counter()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.time = perf_counter() - self.time
+        self.readout = f'Time: {self.time:.3f} seconds'
+        print(self.readout)
+
+def get_data(driver, county):
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, DISTRICT_ID)))
     try: 
         district = driver.find_element(By.ID, DISTRICT_ID).text
@@ -246,11 +264,23 @@ def get_data(driver):
         bath = driver.find_element(By.ID, BATH).text
     except:
         bath = None
+    if county == 0:
+        table = "AA_TABLE"
+    elif county == 1:
+        table = "MNT_TABLE"
+    else:
+        table = "PG_TABLE"
 
-    # if use.upper() not in use_restrict_list:
+    maryland_sql = f'''INSERT INTO {table} 
+                        ("district","account_no","owner_name_1_last_name","owner_name_1_first_name","owner_name_2_last_name","owner_name_2_first_name","mailing","premises","use","principal_residence","deed_reference","map_id","parcel","block_id","subdivision","plat_id","structure_built","living_area","land_area","basement","finished_basement_area","land_value","improvement_value","assessed_value","seller","date","price","transfer_type","homestead_application_status","homeowner_tax_credit","legal_description","stories","bath")
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'''
+    maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath)
+    if use.upper() not in use_restrict_list:
+        cursor_obj.execute(maryland_sql, maryland_data)
+        print("===================== DATA ADDED TO DATABASE =============================")
     return district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath
 
-def run_loop(data, driver, DETAILS_PREVIOUS_ID): 
+def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, street, page):
     first_row, last_row, rows = sdat.find_row_details(driver, 0)
     for i in range(first_row, last_row+1):
     # for i in range(first_row, first_row+5):
@@ -258,22 +288,25 @@ def run_loop(data, driver, DETAILS_PREVIOUS_ID):
             # print(f"searching for {sdat.row_text(driver, i)}")
             sdat.click_row(driver, i)
             time.sleep(2)
-            use_check = get_data(driver)[8]
+            use_check = get_data(driver,county)[8]
             if use_check.upper() not in use_restrict_list:
                 print(data)
                 print(len(data))
-                data.loc[len(data)] = get_data(driver)
+                data.loc[len(data)] = get_data(driver,county)
             else:
                 pass
+
         # except (NoSuchElementException, TimeoutException, ElementNotInteractableException):
         except Exception as e:
             print(e)
             print(f"No data for {i}. Skipping to next row..")
             continue
+        cursor_obj.execute('''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''', (county, COUNTIES[county], index_of_street, street, page, i))
+        print("============================= RETRY_INFO ADDED TO DATABASE ============================")
         sdat.go_back(driver, DETAILS_PREVIOUS_ID)
     return data, last_row
 
-def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search_term, sleeptime):
+def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search_term, sleeptime, county, path, index_of_street):
     total_pages = int(total_pages)
     current_page = sdat.current_page(driver)
     current_page = int(current_page)
@@ -286,7 +319,7 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
     print(f"CURRENT PAGE : {current_page}")
 
     while total_pages >= current_page:
-        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID)
+        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, search_term,current_page)
         print(f"'{search_term}' page {current_page} completed with {last_row} rows..")
         current_page += 1
         if current_page > total_pages:
@@ -307,74 +340,82 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
                     return data
     return data
 
-def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID):
+def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street):
     searched_terms = []
 
     try: 
         for street in search_terms:
-            print(f"street name : {street} search start")
-            driver.find_element(By.ID, STREET_NAME_ID).send_keys(street)
-            driver.find_element(By.CLASS_NAME, CONTINUE_CLASS).click()
-            try:    
-                WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSearchResult_gv_SearchResult_txtOwnerName_1')))
-            except (NoSuchElementException, TimeoutException, ElementNotInteractableException):
-                if street != "allard" and street != "anne chambers" :
-                    print(f"No results found for {street}. Moving on..")
-                    searched_terms.append(street)
-                    sdat.go_back(driver, RESULT_PREVIOUS_ID)
-                    time.sleep(5)
-                    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
-                    time.sleep(5)
-                    continue
-                else:
-                    use_check = get_data(driver)[8]
-                    if use_check.upper() not in use_restrict_list:
-                        print(data)
-                        print(len(data))
-                        data.loc[len(data)] = get_data(driver)
-                    else:
-                        pass
-                    sdat.go_back(driver, DETAILS_PREVIOUS_ID)
-                    time.sleep(5)
-                    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
-                    time.sleep(5)
-                    continue
-
-            total_pages = sdat.page_skips(driver, 10)
-            if int(total_pages) > 0:
-                page_skips = sdat.roundup(int(total_pages) - 1)/10 - 1
-                if page_skips > 0:
-                    print(f"'{street}' has more than 10 pages. Proceeding to scrape all {total_pages} pages with {page_skips} page skips.")
-                    time.sleep(rand_sec)  
-                    skipped_count = 0
-                    while skipped_count <= page_skips:
-                        pages_in_page = sdat.last_page(driver)
-                        pages_in_page = int(pages_in_page) 
-                        data = get_data_in_all_pages(data, driver, pages_in_page, DETAILS_PREVIOUS_ID, street, rand_sec)
-                        time.sleep(1)
-                        if skipped_count == page_skips: 
-                            print(f"Skips completed for {street}.")
-                            skipped_count += 1
+            with catchtime() as t:
+                try:
+                    print(f"street name : {street} search start")
+                    current_index_of_street = search_terms.index(street)
+                    index_of_street += current_index_of_street
+                    driver.find_element(By.ID, STREET_NAME_ID).send_keys(street)
+                    driver.find_element(By.CLASS_NAME, CONTINUE_CLASS).click()
+                    try:
+                        WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSearchResult_gv_SearchResult_txtOwnerName_1')))
+                    except (NoSuchElementException, TimeoutException, ElementNotInteractableException):
+                        if street != "allard" and street != "anne chambers" :
+                            print(f"No results found for {street}. Moving on..")
+                            searched_terms.append(street)
+                            sdat.go_back(driver, RESULT_PREVIOUS_ID)
+                            time.sleep(5)
+                            WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                            time.sleep(5)
                             continue
-                        else: 
-                            sdat.next_skip(driver)
-                            driver.find_element(By.TAG_NAME,"body").send_keys(Keys.HOME)
+                        else:
+                            use_check = get_data(driver, county)[8]
+                            if use_check.upper() not in use_restrict_list:
+                                print(data)
+                                print(len(data))
+                                data.loc[len(data)] = get_data(driver, county)
+                            else:
+                                pass
+                            sdat.go_back(driver, DETAILS_PREVIOUS_ID)
+                            time.sleep(5)
+                            WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                            time.sleep(5)
+                            continue
+
+                    total_pages = sdat.page_skips(driver, 10)
+                    if int(total_pages) > 0:
+                        page_skips = sdat.roundup(int(total_pages) - 1)/10 - 1
+                        if page_skips > 0:
+                            print(f"'{street}' has more than 10 pages. Proceeding to scrape all {total_pages} pages with {page_skips} page skips.")
                             time.sleep(rand_sec)
-                            print(f"Skipped to the next set of pages for {street}.")
-                            skipped_count += 1
-                            time.sleep(10)
-                else: 
-                    print(f"{street} has {total_pages} pages. Proceeding to scrape all.")
-                    data = get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, street, rand_sec)
-            else: 
-                print(f"{street} has only one page. Proceeding to scrape all data.")
-                data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID)
-                print(f"{street} completed with {last_row} rows.")
-                time.sleep(1)
-            searched_terms.append(street)
-            driver.delete_all_cookies()
-            sdat.go_back(driver, RESULT_PREVIOUS_ID)
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                            skipped_count = 0
+                            while skipped_count <= page_skips:
+                                pages_in_page = sdat.last_page(driver)
+                                pages_in_page = int(pages_in_page)
+                                data = get_data_in_all_pages(data, driver, pages_in_page, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street)
+                                time.sleep(1)
+                                if skipped_count == page_skips:
+                                    print(f"Skips completed for {street}.")
+                                    skipped_count += 1
+                                    continue
+                                else:
+                                    sdat.next_skip(driver)
+                                    driver.find_element(By.TAG_NAME,"body").send_keys(Keys.HOME)
+                                    time.sleep(rand_sec)
+                                    print(f"Skipped to the next set of pages for {street}.")
+                                    skipped_count += 1
+                                    time.sleep(10)
+                        else:
+                            print(f"{street} has {total_pages} pages. Proceeding to scrape all.")
+                            data = get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, street, rand_sec, county, path, index_of_street)
+                    else:
+                        print(f"{street} has only one page. Proceeding to scrape all data.")
+                        data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, street, 1)
+                        print(f"{street} completed with {last_row} rows.")
+                        time.sleep(1)
+                    searched_terms.append(street)
+                    driver.delete_all_cookies()
+                    sdat.go_back(driver, RESULT_PREVIOUS_ID)
+                    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                except Exception as e:
+                    print(e)
+                    
+
     except Exception as e:
         print(e)
         print("Something unexpected happened.")
@@ -429,7 +470,7 @@ def main_search(search_terms, county, path):
                                  'stories',
                                  'bath']
                         )
-    data, searched_terms = loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID)
+    data, searched_terms = loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street)
 
     stop = timeit.default_timer()
     execution_time = stop - start
