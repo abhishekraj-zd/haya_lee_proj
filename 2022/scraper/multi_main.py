@@ -566,11 +566,9 @@ if __name__ == '__main__':
     # main_search(search_terms[:10], arg_county_index, path) # Testing purpose
     cursor_obj.execute('''SELECT * FROM RETRY_TABLE ORDER BY created_at DESC LIMIT 1;''')
     data = cursor_obj.fetchone()
+    print(data)
     county_db = data[0] if data else 0
     index_of_street_db = data[2] if data else 0
-    # index_of_street_db = search_terms.index("a sw")
-    print(index_of_street_db)
-    print(search_terms[68])
     current_page_db = data[4] if data else 0
     last_row_db = data[5] if data else 0
     main_search(search_terms[int(index_of_street_db):], int(county_db), path, int(index_of_street_db), int(current_page_db), int(last_row_db))
