@@ -450,7 +450,7 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                 except Exception as e:
                     print(e)
-                    cursor_obj.execute(f'''SELECT * FROM RETRY_TABLE WHERE county_name = {COUNTIES[county]} ORDER BY created_at DESC LIMIT 1;''')
+                    cursor_obj.execute(f'''SELECT * FROM RETRY_TABLE WHERE county_name = "{COUNTIES[county]}" ORDER BY created_at DESC LIMIT 1;''')
                     data = cursor_obj.fetchone()
                     county_db = data[0]
                     index_of_street_db = data[2]
