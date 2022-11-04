@@ -28,7 +28,7 @@ def get_driver(DRIVER_PATH, user_agent_list):
     user_agent = random.choice(user_agent_list)
     options = webdriver.ChromeOptions()
     options.add_argument(f'user-agent={user_agent}')                                                                                                                        
-    # options.add_argument('--headless')
+    options.add_argument('--headless')
     options.add_argument("--disable-infobars")
     options.add_argument('--no-sandbox')
     options.add_argument("--disable-extensions")
