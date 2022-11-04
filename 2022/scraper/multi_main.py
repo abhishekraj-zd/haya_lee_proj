@@ -564,7 +564,7 @@ if __name__ == '__main__':
     #pass arg_last_page & arg_worker in f string using {}
     print(f"Started scraping {COUNTIES[arg_county_index]} for worker arg_worker from search term arg_last_page onwards.")
     # main_search(search_terms[:10], arg_county_index, path) # Testing purpose
-    cursor_obj.execute('''SELECT * FROM RETRY_TABLE ORDER BY created_at DESC LIMIT 1;''')
+    cursor_obj.execute(f'''SELECT * FROM RETRY_TABLE WHERE county_name = "{COUNTIES[arg_county_index]}" ORDER BY created_at DESC LIMIT 1;''')
     data = cursor_obj.fetchone()
     print(data)
     county_db = data[0] if data else 0
