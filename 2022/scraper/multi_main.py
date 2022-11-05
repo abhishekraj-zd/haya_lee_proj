@@ -1,28 +1,16 @@
-#%% 
-from argparse import PARSER
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotInteractableException
-from selenium.webdriver.support.ui import Select
-from webdriver_manager.chrome import ChromeDriverManager
-import math
-import random
-from itertools import chain
-from collections import Counter 
-import argparse
+
 import pandas as pd
-import numpy as np
 import time
-import re
 import timeit
 from functions import sdat_scraper as sdat
 from selenium.webdriver.common.keys import Keys
 import sqlite3
 
-from log_utils import rootLogger as log
-
+from log_utils import create_log_object
 
 connection_obj = sqlite3.Connection("maryland.db")
 cursor_obj = connection_obj.cursor()
@@ -94,14 +82,28 @@ BATH = "cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_d
 
 from time import perf_counter
 
+arg_county_index = 2
+if COUNTIES[arg_county_index] == 'Anne Arundel County':
+    county_file_name = "anne_arundel"
+    path = "complete/"
+elif COUNTIES[arg_county_index] == 'Montgomery County':
+    county_file_name = "montgomery"
+    path = "complete/"
+else:
+    county_file_name = "prince_george_s"
+    path = "complete/"
+
+log = create_log_object(county_file_name)
+
 class catchtime:
     def __enter__(self):
-        self.time = perf_counter()
+        self.start_time = perf_counter()
         return self
 
     def __exit__(self, type, value, traceback):
-        self.time = perf_counter() - self.time
-        self.readout = f'Time: {self.time:.3f} seconds'
+        end_time = perf_counter()
+        self.total_time = end_time - self.start_time
+        self.readout = f'Time: {self.total_time:.3f} seconds and started at : {self.start_time} and finished at : {end_time}'
         log.info(self.readout)
 
 def get_data(driver, county):
@@ -297,16 +299,25 @@ def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, s
                 # log.info(data)
                 log.info(len(data))
                 data.loc[len(data)] = get_data(driver,county)
+                status = "FETCHED"
             else:
+                status = "NO_NEED_TO_SCRAPE"
                 pass
+
 
         # except (NoSuchElementException, TimeoutException, ElementNotInteractableException):
         except Exception as e:
             log.info(e)
             log.info(f"No data for {i}. Skipping to next row..")
-            continue
-        cursor_obj.execute('''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''', (county, COUNTIES[county], index_of_street-1, street, page, i))
-        log.info(f" the query string is : {(county, COUNTIES[county], index_of_street-1, street, page, i)}")
+            status = "ERROR_NO_DATA"
+            # continue
+        # cursor_obj.execute('''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''', (county, COUNTIES[county], index_of_street-1, street, page, i))
+        cursor_obj.execute(
+            '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row", "status") VALUES (?,?,?,?,?,?,?);''',
+            (county, COUNTIES[county], index_of_street_db, street, page, i, status))
+        # log.info(f" the query string is : {(county, COUNTIES[county], index_of_street-1, street, page, i)}")
+        log.info(
+            f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, i, status)}")
         connection_obj.commit()
         log.info("============================= RETRY_INFO ADDED TO DATABASE ============================")
         sdat.go_back(driver, DETAILS_PREVIOUS_ID)
@@ -354,24 +365,11 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
             with catchtime() as t:
                 try:
                     log.info(f"street name : {street} search start")
-                    # current_index_of_street = search_terms.index(street)
-                    # log.info(f"=============== {current_index_of_street}")
-                    # log.info(f"%%%%%%%% {type(current_index_of_street)}")
-                    # log.info(f"============ {index_of_street_db}")
-                    # log.info(f"************** {type(index_of_street_db)}")
-                    # index_of_street += current_index_of_street
                     driver.find_element(By.ID, STREET_NAME_ID).send_keys(street)
                     driver.find_element(By.CLASS_NAME, CONTINUE_CLASS).click()
                     try:
                         WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSearchResult_gv_SearchResult_txtOwnerName_1')))
                     except (NoSuchElementException, TimeoutException, ElementNotInteractableException):
-                        # log.info(f"No results found for {street}. Moving on..")
-                        # searched_terms.append(street)
-                        # sdat.go_back(driver, RESULT_PREVIOUS_ID)
-                        # time.sleep(5)
-                        # WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
-                        # time.sleep(5)
-                        # continue
                         try:
                             log.info(f"No results found for {street}. Moving on..")
                             searched_terms.append(street)
@@ -379,16 +377,20 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             time.sleep(5)
                             WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                             time.sleep(5)
+                            status = "NO_STREET_DATA"
+                            # cursor_obj.execute(
+                            #     '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''',
+                            #     (county, COUNTIES[county], index_of_street_db, street, page, 0))
                             cursor_obj.execute(
-                                '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''',
-                                (county, COUNTIES[county], index_of_street_db, street, page, 0))
+                                '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row", "status") VALUES (?,?,?,?,?,?,?);''',
+                                (county, COUNTIES[county], index_of_street_db, street, page, 0, status))
+                            # log.info(
+                            #     f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, 0)}")
                             log.info(
-                                f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, 0)}")
-
+                                f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, 0, status)}")
                             connection_obj.commit()
                             index_of_street_db += 1
-                            log.info(
-                                "============================= RETRY_INFO ADDED TO DATABASE ============================")
+                            log.info("========== Loading data to database ============================")
                             continue
                         except:
                             log.info(f" ONLY ONE RESULT FOUND FOR {street}. Proceeding to scrape data")
@@ -397,21 +399,27 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                                 # log.info(data)
                                 log.info(len(data))
                                 data.loc[len(data)] = get_data(driver, county)
+                                status = "FETCHED"
                             else:
+                                status = "NO_NEED_TO_SCRAPE"
                                 pass
                             sdat.go_back(driver, DETAILS_PREVIOUS_ID)
                             time.sleep(5)
                             WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
                             time.sleep(5)
+                            # cursor_obj.execute(
+                            #     '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''',
+                            #     (county, COUNTIES[county], index_of_street_db, street, page, 0))
                             cursor_obj.execute(
-                                '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row") VALUES (?,?,?,?,?,?);''',
-                                (county, COUNTIES[county], index_of_street_db, street, page, 0))
+                                '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row", "status") VALUES (?,?,?,?,?,?,?);''',
+                                (county, COUNTIES[county], index_of_street_db, street, page, 0, status))
+                            # log.info(
+                            #     f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, 0)}")
                             log.info(
-                                f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, 0)}")
+                                f" the query string is : {(county, COUNTIES[county], index_of_street_db, street, page, 0, status)}")
                             connection_obj.commit()
                             index_of_street_db += 1
-                            log.info(
-                                "============================= RETRY_INFO ADDED TO DATABASE ============================")
+                            log.info("========= Loading data into RETRY_INFO table ============================")
                             continue
                     total_pages = sdat.page_skips(driver, 10)
                     if int(total_pages) > 0:
@@ -451,15 +459,19 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                     driver.delete_all_cookies()
                     sdat.go_back(driver, RESULT_PREVIOUS_ID)
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                except KeyboardInterrupt as e:
+                    raise e
                 except Exception as e:
                     log.info(e)
+                    log.info("**********  Retring main search due to some error **********")
                     cursor_obj.execute(f'''SELECT * FROM RETRY_TABLE WHERE county_name = "{COUNTIES[county]}" ORDER BY created_at DESC LIMIT 1;''')
-                    data = cursor_obj.fetchone()
-                    county_db = data[0] if data else 0
-                    index_of_street_db = data[2] if data else 0
-                    current_page_db = data[4] if data else 0
-                    last_row_db = data[5] if data else 0
-                    main_search(search_terms[int(index_of_street_db):], int(county_db), path, int(index_of_street_db),
+                    db_data = cursor_obj.fetchone()
+                    log.info(f"retry db_data {db_data}")
+                    county_db = db_data[0] if db_data else 0
+                    index_of_street_db = db_data[2] if db_data else 0
+                    current_page_db = db_data[4] if db_data else 0
+                    last_row_db = db_data[5] if db_data else 0
+                    main_search(driver, search_terms[int(index_of_street_db):], int(county_db), path, int(index_of_street_db),
                                 int(current_page_db), int(last_row_db))
 
     except Exception as e:
@@ -468,11 +480,11 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
     finally:
         return data, searched_terms
 
+
 #%% 
-def main_search(search_terms, county, path, index_of_street, page, start_row):
+def main_search(driver, search_terms, county, path, index_of_street, page, start_row):
     start = timeit.default_timer()
     # searched_terms = []
-    driver = sdat.get_driver(DRIVER_PATH, user_agent_list)
     sdat.open_website(driver, URL)
     time.sleep(3)
     sdat.select_option(driver, COUNTY_ID, U_COUNTIES, county)
@@ -547,15 +559,20 @@ if __name__ == '__main__':
     # arg_last_page = int(args.last_page)
     # for i in range(3):
     arg_county_index = 2
-    if COUNTIES[arg_county_index] == 'Anne Arundel County':
-        county_file_name =  "anne_arundel"
-        path = "complete/"
-    elif COUNTIES[arg_county_index] == 'Montgomery County':
-        county_file_name =  "montgomery"
-        path = "complete/"
-    else:
-        county_file_name =  "prince_george_s"
-        path = "complete/"
+    # if COUNTIES[arg_county_index] == 'Anne Arundel County':
+    #     county_file_name =  "anne_arundel"
+    #     path = "complete/"
+    # elif COUNTIES[arg_county_index] == 'Montgomery County':
+    #     county_file_name =  "montgomery"
+    #     path = "complete/"
+    # else:
+    #     county_file_name =  "prince_george_s"
+    #     path = "complete/"
+    #
+    #
+    # log = create_log_object(county_file_name)
+    print(" ***************** Starting script ********")
+    log.info(" ****************************** LOGGING NEW LOAD **********************************")
 
     suffix_list = sdat.load_suffixes("data/street_name_suffixes.csv")
     locations = sdat.load_locations(f"data/{county_file_name}_locations.csv")
@@ -564,18 +581,15 @@ if __name__ == '__main__':
     search_terms = sorted(search_terms)
     log.info(f"NUMBER OF ADDRESS : {len(search_terms)}")
     # assert True
-    #pass arg_last_page & arg_worker in f string using {}
     log.info(f"Started scraping {COUNTIES[arg_county_index]} for worker arg_worker from search term arg_last_page onwards.")
-    # main_search(search_terms[:10], arg_county_index, path) # Testing purpose
     cursor_obj.execute(f'''SELECT * FROM RETRY_TABLE WHERE county_name = "{COUNTIES[arg_county_index]}" ORDER BY created_at DESC LIMIT 1;''')
-    data = cursor_obj.fetchone()
-    log.info(data)
-    county_db = data[0] if data else 0
-    index_of_street_db = data[2] if data else 0
-    current_page_db = data[4] if data else 0
-    last_row_db = data[5] if data else 0
-    main_search(search_terms[int(index_of_street_db):], int(county_db), path, int(index_of_street_db), int(current_page_db), int(last_row_db))
-    # main_search(search_terms[11:], arg_county_index, path, 0, 1, 0)
-    # main_search(["allard","apple"],arg_county_index, path)
-# main_search(np.array_split(search_terms, 10)[arg_worker][arg_last_page:], arg_worker, arg_county_index, path)
+    db_data = cursor_obj.fetchone()
+    log.info(db_data)
+    county_db = db_data[0] if db_data else arg_county_index
+    index_of_street_db = db_data[2] if db_data else 0
+    current_page_db = db_data[4] if db_data else 1
+    last_row_db = db_data[5] if db_data else 0
+    driver = sdat.get_driver(DRIVER_PATH, user_agent_list)
+    main_search(driver, search_terms[int(index_of_street_db):], int(county_db), path, int(index_of_street_db), int(current_page_db), int(last_row_db))
+    print(" ***************** Finished script ********")
 #     data_merge_func(arg_county_index, "sdat")
