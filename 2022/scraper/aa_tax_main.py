@@ -14,6 +14,13 @@ import numpy as np
 import re
 import time
 from functions import sdat_scraper as sdat
+import sqlite3
+
+from log_utils import create_log_object
+
+connection_obj = sqlite3.Connection("maryland.db")
+cursor_obj = connection_obj.cursor()
+log = create_log_object("anne_arundel_tax")
 
 user_agent_list = [
 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
@@ -74,7 +81,9 @@ def get_data(driver):
         owner = driver.find_element(By.ID, OWNER_ID).text
     except: 
         owner = None
-    
+    sql_tax = '''INSERT INTO AA_TAX ( "tax_month", "tax_amount", "parcel_ID", "owner") VALUES (?,?,?,?) '''
+    cursor_obj.execute(sql_tax,(tax_month, tax_amount, account_number, owner))
+    connection_obj.commit()
     return tax_month, tax_amount, account_number, owner
 
 
@@ -96,6 +105,14 @@ def find_account_number(x):
     subdiv = re.findall('(\d+)', x)[1]
     account = re.findall('(\d+)', x)[2]
     return f'{str(district)}{str(subdiv)}{str(account)}'
+
+def func_check_site_down(driver):
+    check = True
+    while check:
+        if driver.find_element(By.ID, "ctl00_ctl00_ContentMessageParagraph") :
+            time.sleep(9)  # SLEEP FOR 15 MINUTES
+        else:
+            check = False
 
 #%% 
 def main(accounts, path): # , worker
@@ -145,11 +162,16 @@ def main(accounts, path): # , worker
 if __name__ == '__main__':
 
     path = "complete/"
-    df = pd.read_csv(f'complete/Anne Arundel County_SDAT_test.csv')
-    print(df)
-    df['account_no'] = df['district'].apply(lambda x: find_account_number(x)) 
-    accounts = list(df['account_no'].dropna().unique())
+    # df = pd.read_csv(f'complete/Anne Arundel County_SDAT_test.csv')
+    # print(df)
+    # df['account_no'] = df['district'].apply(lambda x: find_account_number(x))
+    # accounts = list(df['account_no'].dropna().unique())
+    cursor_obj.execute('''SELECT parcel_id FROM AA_TABLE;''')
+    account_db = cursor_obj.fetchall()
+    accounts = [i[0] for i in account_db]
+    # print(accounts)
+
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
-    main(accounts, path)
+    main(accounts[6:], path)
 
 

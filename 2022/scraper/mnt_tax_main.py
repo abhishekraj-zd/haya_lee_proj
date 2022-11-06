@@ -10,6 +10,13 @@ import argparse
 import pandas as pd
 import numpy as np
 from functions import sdat_scraper as sdat
+import sqlite3
+
+from log_utils import create_log_object
+
+connection_obj = sqlite3.Connection("maryland.db")
+cursor_obj = connection_obj.cursor()
+log = create_log_object("montgomery_tax")
 
 user_agent_list = [
 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
@@ -98,7 +105,9 @@ def get_data(driver):
         account_number =  driver.find_element(By.ID, ACCOUNT_NO_ID).text
     except:
         account_number = None
-                          
+    sql_tax = '''INSERT INTO MNT_TAX ( "parcel_ID", "owner", "tax_amount", "tax_period", "lot", "class_id", "mortgage") VALUES (?,?,?,?,?,?,?) '''
+    cursor_obj.execute(sql_tax,(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage))
+    connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage # detail_address, prop_address, occupancy, block, district, sub
 
 
@@ -155,7 +164,9 @@ def get_data_lien(driver):
         account_number = driver.find_element(By.ID, "lblParcelCode").text
     except:
         account_number = None
-
+    sql_tax = '''INSERT INTO MNT_TAX ( "parcel_ID", "owner", "tax_amount", "tax_period", "lot", "class_id", "mortgage") VALUES (?,?,?,?,?,?,?) '''
+    cursor_obj.execute(sql_tax,(account_number, owner, tax_amount, tax_period, lot, class_id, mortgage))
+    connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage  # detail_address, prop_address, occupancy, block, district, sub
 
 def get_to_last_page(driver):
