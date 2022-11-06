@@ -15,7 +15,6 @@ import re
 import time
 from functions import sdat_scraper as sdat
 import sqlite3
-
 from log_utils import create_log_object
 
 connection_obj = sqlite3.Connection("maryland.db")
@@ -53,7 +52,7 @@ def get_data(driver):
         x = (df[-1]['Pay By'])
         li = [i for i in x if not i.isalnum()]
         tax_month = li[-1]
-        print(tax_month)
+        log.info(tax_month)
         # tax_month_row = driver.find_elements(By.CSS_SELECTOR, '#ctl00_ctl00_PrimaryPlaceHolder_ContentPlaceHolderMain_ViewBill1_BillDetailsUpdatePanel > .datatable > tbody > tr')
         # for row in tax_month_row[::-1]:
         #     data = row.find_elements(By.TAG_NAME, "td")
@@ -63,9 +62,9 @@ def get_data(driver):
         #     else:
         #         tax_month = None
         # # tax_month = tax_month_row[-1].find_elements(By.TAG_NAME, 'td')[1].text
-        # print(tax_month)
+        # log.info(tax_month)
     except Exception as e:
-        print(e)
+        log.info(e)
         tax_month = None
     try:
         row = driver.find_elements(By.CSS_SELECTOR, "#ctl00_ctl00_PrimaryPlaceHolder_ContentPlaceHolderMain_ViewBill1_BillDetailsUpdatePanel > table > tbody > tr")[-1]
@@ -82,6 +81,7 @@ def get_data(driver):
     except: 
         owner = None
     sql_tax = '''INSERT INTO AA_TAX ( "tax_month", "tax_amount", "parcel_ID", "owner") VALUES (?,?,?,?) '''
+    log.info(f"DATA IN AA_TAX TABLE : {(tax_month, tax_amount, account_number, owner)}")
     cursor_obj.execute(sql_tax,(tax_month, tax_amount, account_number, owner))
     connection_obj.commit()
     return tax_month, tax_amount, account_number, owner
@@ -109,8 +109,8 @@ def find_account_number(x):
 def func_check_site_down(driver):
     check = True
     while check:
-        if driver.find_element(By.ID, "ctl00_ctl00_ContentMessageParagraph") :
-            time.sleep(9)  # SLEEP FOR 15 MINUTES
+        if driver.find_element(By.ID, "ctl00_ctl00_ContentMessageParagraph").text :
+            time.sleep(900)  # SLEEP FOR 15 MINUTES
         else:
             check = False
 
@@ -123,7 +123,8 @@ def main(accounts, path): # , worker
     data = pd.DataFrame(columns=['tax_month', 'tax_amount', 'parcel_ID', 'owner'])
     for account in accounts:
         try:
-            print(account)
+            # func_check_site_down(driver)
+            log.info(account)
             WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account)
             driver.find_element(By.ID, SEARCH_ID).click()
             WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, DATA_TABLE_ID)))
@@ -134,44 +135,62 @@ def main(accounts, path): # , worker
             rows_list[-1].find_element(By.CSS_SELECTOR, ".nowrap > a").click()
             data.loc[len(data)] = get_data(driver)
             # else:
-            #     print(account)
-            #     print("No data found. Moving on..")
+            #     log.info(account)
+            #     log.info("No data found. Moving on..")
             #     pass
-            print(f'{len(data)}/{len(accounts)} accounts done.')
+            log.info(f'{len(data)}/{len(accounts)} accounts done.')
+            cursor_obj.execute('''INSERT INTO AA_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',(account,accounts.index(account),"DONE"))
+            connection_obj.commit()
             searched.append(account)
             new_search(driver)
             if len(data) % 500 == 0:
                 driver.delete_all_cookies()
             else:
                 pass
+        except NoSuchElementException:
+            print("it came here")
+            log.info("data not available")
+            cursor_obj.execute('''INSERT INTO AA_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',(account,accounts.index(account),"NO_DATA"))
+            connection_obj.commit()
+            log.info(f"DATA IN AA_TAX TABLE : {(account,accounts.index(account),'NO_DATA')}")
         except Exception as e :
-            print(e)
-            print("Something went wrong. Skipping account..")
-            searched.append(account)
-            exceptions += 1
-            if exceptions > 2000:
-                data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
-                break
-            else:
-                sdat.open_website(driver, URL)
-                continue
+            print("it came there")
+            log.info(e)
+            log.info("Something went wrong. Skipping account..")
+            cursor_obj.execute('''INSERT INTO AA_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',(account,accounts.index(account),"ERROR"))
+            connection_obj.commit()
+            log.info(f"DATA IN AA_TAX TABLE : {(account, accounts.index(account), 'ERROR')}")
+            # searched.append(account)
+            # exceptions += 1
+            # if exceptions > 2000:
+            #     data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
+            #     break
+            # else:
+            #     sdat.open_website(driver, URL)
+            #     continue
 
     data.to_csv(f'{path}Anne Arundel County_TAX.csv') # add worker
-    print(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for.') # add worker
+    log.info(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for.') # add worker
 #%% 
 if __name__ == '__main__':
 
     path = "complete/"
     # df = pd.read_csv(f'complete/Anne Arundel County_SDAT_test.csv')
-    # print(df)
+    # log.info(df)
     # df['account_no'] = df['district'].apply(lambda x: find_account_number(x))
     # accounts = list(df['account_no'].dropna().unique())
-    cursor_obj.execute('''SELECT parcel_id FROM AA_TABLE;''')
+    print("=========== scraping started =======================")
+    cursor_obj.execute('''SELECT * FROM AA_RETRY ORDER BY created_at DESC LIMIT 1;''')
+    db_data = cursor_obj.fetchone()
+    # log.info(db_data)
+    index_parcel_db = db_data[1] if db_data else 0
+    cursor_obj.execute('''SELECT DISTINCT parcel_id FROM AA_TABLE;''')
     account_db = cursor_obj.fetchall()
-    accounts = [i[0] for i in account_db]
-    # print(accounts)
+    accounts = [i[0] for i in account_db[int(index_parcel_db):]]
+    # log.info(accounts)
 
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
-    main(accounts[6:], path)
+    main(accounts, path)
 
 
+#### INDEXING THIK KARNA HAI

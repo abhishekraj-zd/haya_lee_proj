@@ -241,6 +241,10 @@ def main(accounts, path):
                 except Exception as e:
                     print(e)
                     print("No data. Moving on..")
+                    cursor_obj.execute('''INSER INTO MNT_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',
+                                       (account, accounts.index(account), "NO_DATA"))
+                    connection_obj.commit()
+                    log.info(f"DATA IN AA_TAX TABLE : {(account, accounts.index(account), 'NO_DATA')}")
                     new_search(driver)
                     searched.append(account)
                     continue
@@ -263,6 +267,10 @@ def main(accounts, path):
                 except:
                     data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
                     print("Something went wrong. Skipping account..")
+                    cursor_obj.execute('''INSER INTO MNT_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',
+                                       (account, accounts.index(account), "ERROR"))
+                    connection_obj.commit()
+                    log.info(f"DATA IN AA_TAX TABLE : {(account, accounts.index(account), 'ERROR')}")
                     sdat.open_website(driver, URL)
                     continue
         

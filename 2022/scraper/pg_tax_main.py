@@ -220,6 +220,10 @@ def main(accounts, path):
                         data.loc[len(data)] = get_data(driver)
             else: 
                 print("No data found. Moving on..")
+                cursor_obj.execute('''INSER INTO PG_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',
+                                   (account, accounts.index(account), "NO_DATA"))
+                connection_obj.commit()
+
                 searched.append(account)
                 pass
             print(f'{len(data)}/{len(accounts)} accounts done.')
