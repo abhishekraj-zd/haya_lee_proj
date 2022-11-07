@@ -15,7 +15,13 @@ import argparse
 import pandas as pd
 import numpy as np
 from functions import sdat_scraper as sdat
+import sqlite3
 
+from log_utils import create_log_object
+
+connection_obj = sqlite3.Connection("maryland.db")
+cursor_obj = connection_obj.cursor()
+log = create_log_object("prince_george_s")
 
 user_agent_list = [
 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
@@ -104,12 +110,14 @@ def get_data(driver):
         amount = None
         
     tax_sale = None
-    
+    sql_tax = '''INSERT INTO PG_TAX ( "tax_month", "tax_amount", "parcel_ID", "owner", "tax_sale", "attorney_name", "attorney_phone", "purchaser_name", "equity_case_no", "bid_amount", "base", "ip", "amount") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) '''
+    cursor_obj.execute(sql_tax, (tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount))
+    connection_obj.commit()
     return tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount #block
 
 def get_sale_data(driver):
     try: 
-        tax_month = driver.find_element(By.ID,'lblpyln5col1').text
+        tax_month = driver.find_element(By.ID, 'lblpyln5col1').text
     except:
         tax_month = None
     try:
@@ -164,7 +172,9 @@ def get_sale_data(driver):
         amount = driver.find_element(By.ID, AMOUNT_ID).text
     except:
         amount = None
-    
+    sql_tax = '''INSERT INTO PG_TAX ( "tax_month", "tax_amount", "parcel_ID", "owner", "tax_sale", "attorney_name", "attorney_phone", "purchaser_name", "equity_case_no", "bid_amount", "base", "ip", "amount") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) '''
+    cursor_obj.execute(sql_tax, (tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount))
+    connection_obj.commit()
     return tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount #block
 
 def get_to_last_page(driver):
@@ -210,6 +220,10 @@ def main(accounts, path):
                         data.loc[len(data)] = get_data(driver)
             else: 
                 print("No data found. Moving on..")
+                cursor_obj.execute('''INSER INTO PG_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',
+                                   (account, accounts.index(account), "NO_DATA"))
+                connection_obj.commit()
+
                 searched.append(account)
                 pass
             print(f'{len(data)}/{len(accounts)} accounts done.')
