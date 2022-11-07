@@ -2,7 +2,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotInteractableException
-
+import mysql.connector
 import pandas as pd
 import time
 import timeit
@@ -12,8 +12,20 @@ import sqlite3
 
 from log_utils import create_log_object
 
-connection_obj = sqlite3.Connection("maryland.db")
+'''MY SQL CONNECTION'''
+
+connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+                                         database='haya_lee',
+                                         user='admin',
+                                         password='Qwerty12345678')
+
 cursor_obj = connection_obj.cursor()
+
+
+
+# '''sql lite connection'''
+# connection_obj = sqlite3.Connection("maryland.db")
+# cursor_obj = connection_obj.cursor()
 # index_of_street_db = 0
 
 use_restrict_list = ["COMMERCIAL", "INDUSTRIAL", "AGRICULTURE", "APARTMENT", "CONDOMINIUM", "COMMERCIAL CONDOMINIUM"]
@@ -82,7 +94,7 @@ BATH = "cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_d
 
 from time import perf_counter
 
-arg_county_index = 2
+arg_county_index = 1
 if COUNTIES[arg_county_index] == 'Anne Arundel County':
     county_file_name = "anne_arundel"
     path = "complete/"
@@ -275,14 +287,19 @@ def get_data(driver, county):
         table = "MNT_TABLE"
     else:
         table = "PG_TABLE"
-
+    parcel_id ='0'
     maryland_sql = f'''INSERT INTO {table} 
-                        ("district","account","owner_1_first_name","owner_1_last_name","owner_2_first_name","owner_2_last_name","mailing","premises","use","principal_residence","deed_reference","map_id","parcel","block","subdivision","plat_id","structure_built","living_area","land_area","basement","finished_basement_area","land_value","improvement_value","assessed_value","seller","date","price","transfer_type","homestead_application_status","homeowner_tax_credit","legal_description","stories","bath")
-                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'''
-    maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath)
+                        (district,account,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath,parcel_id)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'''
+    maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath,parcel_id)
     if use.upper() not in use_restrict_list:
-        cursor_obj.execute(maryland_sql, maryland_data)
-        connection_obj.commit()
+        try:
+            cursor_obj.execute(maryland_sql, maryland_data)
+            # connection_obj.commit()
+        except Exception as e:
+            print(cursor_obj.statement)
+            raise e
+
         log.info("===================== DATA ADDED TO DATABASE =============================")
     return district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath
 
@@ -293,8 +310,9 @@ def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, s
         try:
             # log.info(f"searching for {sdat.row_text(driver, i)}")
             sdat.click_row(driver, i)
-            time.sleep(5)
-            use_check = driver.find_element(By.ID, USE_ID).text
+            # time.sleep(5)
+            # use_check = driver.find_element(By.ID, USE_ID).text
+            use_check = WebDriverWait(driver, 7).until(EC.presence_of_element_located((By.ID, USE_ID))).text
             if use_check.upper() not in use_restrict_list:
                 # log.info(data)
                 log.info(len(data))
@@ -315,7 +333,8 @@ def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, s
             # continue
 
         cursor_obj.execute(
-            '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row", "status", "start_index", "end_index") VALUES (?,?,?,?,?,?,?,?,?);''',
+            '''INSERT INTO RETRY_TABLE (county_index, county_name, street_index, street, page_no, row_, status, start_index, end_index) 
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s);''',
             (county, COUNTIES[county], index_of_street, street, page, i, status, start, end))
 
         log.info(
@@ -383,7 +402,8 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             status = "NO_STREET_DATA"
 
                             cursor_obj.execute(
-                                '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row", "status", "start_index", "end_index") VALUES (?,?,?,?,?,?,?,?,?);''',
+                                '''INSERT INTO RETRY_TABLE (county_index, county_name, street_index, street, page_no, row_, status, start_index, end_index) 
+                                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s);''',
                                 (county, COUNTIES[county], index_of_street_db, street, page, 0, status, start, end))
 
                             log.info(
@@ -410,7 +430,8 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                             time.sleep(5)
 
                             cursor_obj.execute(
-                                '''INSERT INTO RETRY_TABLE ("county_index", "county_name", "street_index", "street", "page_no", "row", "status", "start_index", "end_index") VALUES (?,?,?,?,?,?,?,?,?);''',
+                                '''INSERT INTO RETRY_TABLE (county_index, county_name, street_index, street, page_no, row_, status, start_index, end_index) 
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s);''',
                                 (county, COUNTIES[county], index_of_street_db, street, page, 0, status, start, end))
 
                             log.info(
@@ -559,9 +580,9 @@ if __name__ == '__main__':
     # arg_worker = int(args.worker)
     # arg_last_page = int(args.last_page)
     # for i in range(3):
-    arg_county_index = 2
-    start_index = 500
-    end_index = 1000
+    arg_county_index = 1
+    start_index = 1000
+    end_index = 1500
     # if COUNTIES[arg_county_index] == 'Anne Arundel County':
     #     county_file_name =  "anne_arundel"
     #     path = "complete/"
