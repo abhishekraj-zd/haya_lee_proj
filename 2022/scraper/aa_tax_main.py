@@ -159,7 +159,7 @@ def main(accounts, path): # , worker
                 driver.delete_all_cookies()
             else:
                 pass
-            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE" WHERE account = {account_}''')
+            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE" WHERE account = "{account}"''')
             connection_obj.commit()
         except NoSuchElementException:
             print("it came here")
@@ -167,7 +167,7 @@ def main(accounts, path): # , worker
             cursor_obj.execute('''INSERT INTO AA_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',(account,accounts.index(account),"NO_DATA"))
             connection_obj.commit()
             log.info(f"DATA IN AA_TAX TABLE : {(account_,accounts.index(account),'NO_DATA')}")
-            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE_but_no_data" WHERE account = {account_}''')
+            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE_but_no_data" WHERE account = "{account}"''')
             connection_obj.commit()
         except Exception as e :
             print("it came there")
@@ -176,7 +176,7 @@ def main(accounts, path): # , worker
             cursor_obj.execute('''INSERT INTO AA_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',(account,accounts.index(account),"ERROR"))
             connection_obj.commit()
             log.info(f"DATA IN AA_TAX TABLE : {(account_, accounts.index(account), 'ERROR')}")
-            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE_but_no_data" WHERE account = {account_}''')
+            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE_but_no_data" WHERE account = "{account}"''')
             connection_obj.commit()
 
             # searched.append(account)
@@ -213,15 +213,16 @@ if __name__ == '__main__':
     # # log.info(db_data)
     # index_parcel_db = db_data[1] if db_data else 0
     cursor_obj.execute(f'''SELECT distinct(AA_TABLE.district) FROM AA_TABLE  
-                            left JOIN AA_TAX ON AA_TABLE.account = AA_TAX.parcel_ID WHERE AA_TAX.parcel_ID IS NULL;''')
+                            left JOIN aa_status ON AA_TABLE.district = aa_status.account WHERE aa_status.account IS NULL;''')
     account_db = cursor_obj.fetchall()
     accounts = [i[0] for i in account_db[start_index:end_index]]
     # log.info(accounts)
+    print("loading data into status table")
     for i in accounts:
         cursor_obj.execute('''INSERT INTO aa_status (account,start_index,end_index,status) 
         VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
         connection_obj.commit()
-
+    print("data inserted in status table")
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
     main(accounts, path)
 
