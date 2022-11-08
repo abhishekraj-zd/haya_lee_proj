@@ -9,6 +9,7 @@ import timeit
 from functions import sdat_scraper as sdat
 from selenium.webdriver.common.keys import Keys
 import sqlite3
+import argparse
 
 from log_utils import create_log_object
 
@@ -94,18 +95,21 @@ BATH = "cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_d
 
 from time import perf_counter
 
-arg_county_index = 1
-if COUNTIES[arg_county_index] == 'Anne Arundel County':
-    county_file_name = "anne_arundel"
-    path = "complete/"
-elif COUNTIES[arg_county_index] == 'Montgomery County':
-    county_file_name = "montgomery"
-    path = "complete/"
-else:
-    county_file_name = "prince_george_s"
-    path = "complete/"
-
-log = create_log_object(county_file_name)
+# arg_county_index = 1
+# start_index = 1501
+# end_index = 2000
+#
+# if COUNTIES[arg_county_index] == 'Anne Arundel County':
+#     county_file_name = "anne_arundel"
+#     path = "complete/"
+# elif COUNTIES[arg_county_index] == 'Montgomery County':
+#     county_file_name = "montgomery"
+#     path = "complete/"
+# else:
+#     county_file_name = "prince_george_s"
+#     path = "complete/"
+#
+# log = create_log_object(county_file_name, start_index, end_index)
 
 class catchtime:
     def __enter__(self):
@@ -571,31 +575,28 @@ def func_check_site_down(driver):
 
 #%%
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("county_index", help="0 - Anne Arundel, 1 - Montgomery, 2 - Prince George's")
-    # parser.add_argument("worker", help="Specify the number of worker from 1 - 10")
-    # parser.add_argument("last_page", help="Specify the last page the script completed.")
-    #
-    # args = parser.parse_args()
-    # arg_county_index = int(args.county_index)
-    # arg_worker = int(args.worker)
-    # arg_last_page = int(args.last_page)
-    # for i in range(3):
-    arg_county_index = 1
-    start_index = 1501
-    end_index = 2000
-    # if COUNTIES[arg_county_index] == 'Anne Arundel County':
-    #     county_file_name =  "anne_arundel"
-    #     path = "complete/"
-    # elif COUNTIES[arg_county_index] == 'Montgomery County':
-    #     county_file_name =  "montgomery"
-    #     path = "complete/"
-    # else:
-    #     county_file_name =  "prince_george_s"
-    #     path = "complete/"
-    #
-    #
-    # log = create_log_object(county_file_name)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("county_index", help="0 - Anne Arundel, 1 - Montgomery, 2 - Prince George's")
+    parser.add_argument("start_index", help="start index to run")
+    parser.add_argument("end_index", help="end index to run")
+    args = parser.parse_args()
+    print('args: ', args)
+    arg_county_index = int(args.county_index)
+    start_index = int(args.start_index)
+    end_index = int(args.end_index)
+
+    if COUNTIES[arg_county_index] == 'Anne Arundel County':
+        county_file_name = "anne_arundel"
+        path = "complete/"
+    elif COUNTIES[arg_county_index] == 'Montgomery County':
+        county_file_name = "montgomery"
+        path = "complete/"
+    else:
+        county_file_name = "prince_george_s"
+        path = "complete/"
+
+    log = create_log_object(county_file_name, start_index, end_index)
+
     print(" ***************** Starting script ********")
     log.info(" ****************************** LOGGING NEW LOAD **********************************")
 
