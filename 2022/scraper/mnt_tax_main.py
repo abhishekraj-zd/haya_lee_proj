@@ -115,6 +115,7 @@ def get_data(driver):
     except:
         account_number = None
     sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
+    log.info(f" sql data : {(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage, 'DONE')}")
     cursor_obj.execute(sql_tax,(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage, "DONE"))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage # detail_address, prop_address, occupancy, block, district, sub
@@ -210,66 +211,68 @@ def main(data, accounts, path, start_index, end_index):
     for account in accounts:
         account = account.strip()
         log.info(account)
+        # try:
+        #     table_rows = driver.find_element(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
+        #     table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
+        #     data.loc[len(data)] = get_data(driver)
+        #     searched.append(account)
+        #     log.info(f'{len(data)} account done')
+        # except Exception as e:
+        #     log.info(e)
+        #     print(e)
         try:
-            table_rows = driver.find_element(By.CLASS_NAME, ".tblReptorcls > tbody > tr")
-            table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
-            data.loc[len(data)] = get_data(driver)
-            searched.append(account)
-            log.info(f'{len(data)} account done')
+            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account)
+            driver.find_element(By.ID, ACCOUNT_GO_ID).click()
+            try:
+                try:
+                    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")))
+                    table_rows = driver.find_elements(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
+                    table_rows[1].find_elements(By.TAG_NAME, "td")[1].click()
+                    data.loc[len(data)] = get_data_lien(driver)
+                except:
+                # view_details(driver)
+                    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")))
+                    table_rows = driver.find_elements(By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")
+                    table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
+                    data.loc[len(data)] = get_data(driver)
+                searched.append(account)
+                log.info(f'{len(data)} account done')
+            except Exception as e:
+                log.info(e)
+                log.info("No data. Moving on..")
+                cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index) VALUES (%s,%s,%s,%s,%s);''',
+                                   (account, accounts.index(account), "NO_DATA", start_index, end_index))
+                connection_obj.commit()
+                log.info(f"DATA IN MNT_TAX TABLE : {(account, accounts.index(account), 'NO_DATA')}")
+                new_search(driver)
+                searched.append(account)
+                continue
+            try:
+                new_search(driver)
+            except:
+                driver.back()
+                time.sleep(3)
+                new_search(driver)
+            if len(data) % 500 == 0:
+                driver.delete_all_cookies()
+            else:
+                pass
         except:
             try:
-                WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account)
-                driver.find_element(By.ID, ACCOUNT_GO_ID).click()
-                try:
-                    try:
-                        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")))
-                        table_rows = driver.find_elements(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
-                        table_rows[1].find_elements(By.TAG_NAME, "td")[1].click()
-                        data.loc[len(data)] = get_data_lien(driver)
-                    except:
-                    # view_details(driver)
-                        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")))
-                        table_rows = driver.find_elements(By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")
-                        table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
-                        data.loc[len(data)] = get_data(driver)
-                    searched.append(account)
-                    log.info(f'{len(data)} account done')
-                except Exception as e:
-                    log.info(e)
-                    log.info("No data. Moving on..")
-                    cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index) VALUES (%s,%s,%s,%s,%s);''',
-                                       (account, accounts.index(account), "NO_DATA", start_index, end_index))
-                    connection_obj.commit()
-                    log.info(f"DATA IN MNT_TAX TABLE : {(account, accounts.index(account), 'NO_DATA')}")
-                    new_search(driver)
-                    searched.append(account)
-                    continue
-                try:
-                    new_search(driver)
-                except:
-                    driver.back()
-                    time.sleep(3)
-                    new_search(driver)
-                if len(data) % 500 == 0:
-                    driver.delete_all_cookies()
-                else:
-                    pass
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="acsMainInvite"]/div/a[1]'))).click()
+                log.info("Clicked pop up..")
+                sdat.open_website(driver, URL)
+                continue
             except:
-                try:
-                    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="acsMainInvite"]/div/a[1]'))).click()
-                    log.info("Clicked pop up..")
-                    sdat.open_website(driver, URL)
-                    continue
-                except:
-                    data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
-                    log.info("Something went wrong. Skipping account..")
-                    print((account, accounts.index(account), "ERROR", start_index, end_index))
-                    cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index)
-                     VALUES (%s,%s,%s,%s,%s);''',(account, accounts.index(account), "ERROR", start_index, end_index))
-                    connection_obj.commit()
-                    log.info(f"DATA IN  MNT_TAX TABLE : {(account, accounts.index(account), 'ERROR')}")
-                    sdat.open_website(driver, URL)
-                    continue
+                data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
+                log.info("Something went wrong. Skipping account..")
+                print((account, accounts.index(account), "ERROR", start_index, end_index))
+                cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index)
+                 VALUES (%s,%s,%s,%s,%s);''',(account, accounts.index(account), "ERROR", start_index, end_index))
+                connection_obj.commit()
+                log.info(f"DATA IN  MNT_TAX TABLE : {(account, accounts.index(account), 'ERROR')}")
+                sdat.open_website(driver, URL)
+                continue
         
     data.to_csv(f'{path}Montgomery County_TAX_test.csv') # add worker
     log.info(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for.') # add worker
