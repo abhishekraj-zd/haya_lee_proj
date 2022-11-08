@@ -164,7 +164,7 @@ def main(accounts, path): # , worker
         except NoSuchElementException:
             print("it came here")
             log.info("data not available")
-            cursor_obj.execute('''INSERT INTO AA_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',(account,accounts.index(account),"NO_DATA"))
+            cursor_obj.execute('''INSERT INTO AA_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',(account_,accounts.index(account),"NO_DATA"))
             connection_obj.commit()
             log.info(f"DATA IN AA_TAX TABLE : {(account_,accounts.index(account),'NO_DATA')}")
             cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE_but_no_data" WHERE account = "{account}"''')
@@ -185,8 +185,8 @@ def main(accounts, path): # , worker
             #     data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
             #     break
             # else:
-            #     sdat.open_website(driver, URL)
-            #     continue
+            sdat.open_website(driver, URL)
+            continue
 
     data.to_csv(f'{path}Anne Arundel County_TAX.csv') # add worker
     log.info(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for.') # add worker
