@@ -11,12 +11,21 @@ import pandas as pd
 import numpy as np
 from functions import sdat_scraper as sdat
 import sqlite3
-
+import mysql.connector
 from log_utils import create_log_object
 
-connection_obj = sqlite3.Connection("maryland.db")
+
+connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+                                         database='haya_lee',
+                                         user='admin',
+                                         password='Qwerty12345678')
+
 cursor_obj = connection_obj.cursor()
-log = create_log_object("montgomery_tax")
+
+
+# connection_obj = sqlite3.Connection("maryland.db")
+# cursor_obj = connection_obj.cursor()
+
 
 user_agent_list = [
 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
@@ -105,8 +114,9 @@ def get_data(driver):
         account_number =  driver.find_element(By.ID, ACCOUNT_NO_ID).text
     except:
         account_number = None
-    sql_tax = '''INSERT INTO MNT_TAX ( "parcel_ID", "owner", "tax_amount", "tax_period", "lot", "class_id", "mortgage") VALUES (?,?,?,?,?,?,?) '''
-    cursor_obj.execute(sql_tax,(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage))
+    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
+    log.info(f" sql data : {(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage, 'DONE')}")
+    cursor_obj.execute(sql_tax,(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage, "DONE"))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage # detail_address, prop_address, occupancy, block, district, sub
 
@@ -164,7 +174,7 @@ def get_data_lien(driver):
         account_number = driver.find_element(By.ID, "lblParcelCode").text
     except:
         account_number = None
-    sql_tax = '''INSERT INTO MNT_TAX ( "parcel_ID", "owner", "tax_amount", "tax_period", "lot", "class_id", "mortgage") VALUES (?,?,?,?,?,?,?) '''
+    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage) VALUES (%s,%s,%s,%s,%s,%s,%s) '''
     cursor_obj.execute(sql_tax,(account_number, owner, tax_amount, tax_period, lot, class_id, mortgage))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage  # detail_address, prop_address, occupancy, block, district, sub
@@ -174,7 +184,7 @@ def get_to_last_page(driver):
         try:
             WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.LINK_TEXT, "Next"))).click()
         except:
-            return print("At the last page")
+            return log.info("At the last page")
 
 def new_search(driver):
     try: 
@@ -193,10 +203,101 @@ def view_details(driver):
 
 
 
-def main(accounts, path):
+def main(data, accounts, path, start_index, end_index):
     searched = []
     driver = sdat.get_driver(DRIVER_PATH, user_agent_list)
     sdat.open_website(driver, URL)
+
+    for account in accounts:
+        account = account.strip()
+        log.info(account)
+        # try:
+        #     table_rows = driver.find_element(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
+        #     table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
+        #     data.loc[len(data)] = get_data(driver)
+        #     searched.append(account)
+        #     log.info(f'{len(data)} account done')
+        # except Exception as e:
+        #     log.info(e)
+        #     print(e)
+        try:
+            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account)
+            driver.find_element(By.ID, ACCOUNT_GO_ID).click()
+            try:
+                try:
+                    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")))
+                    table_rows = driver.find_elements(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
+                    table_rows[1].find_elements(By.TAG_NAME, "td")[1].click()
+                    data.loc[len(data)] = get_data_lien(driver)
+                except:
+                # view_details(driver)
+                    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")))
+                    table_rows = driver.find_elements(By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")
+                    table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
+                    data.loc[len(data)] = get_data(driver)
+                searched.append(account)
+                log.info(f'{len(data)} account done')
+            except Exception as e:
+                log.info(e)
+                log.info("No data. Moving on..")
+                cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index) VALUES (%s,%s,%s,%s,%s);''',
+                                   (account, accounts.index(account), "NO_DATA", start_index, end_index))
+                connection_obj.commit()
+                log.info(f"DATA IN MNT_TAX TABLE : {(account, accounts.index(account), 'NO_DATA')}")
+                new_search(driver)
+                searched.append(account)
+                continue
+            try:
+                new_search(driver)
+            except:
+                driver.back()
+                time.sleep(3)
+                new_search(driver)
+            if len(data) % 500 == 0:
+                driver.delete_all_cookies()
+            else:
+                pass
+        except:
+            try:
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="acsMainInvite"]/div/a[1]'))).click()
+                log.info("Clicked pop up..")
+                sdat.open_website(driver, URL)
+                continue
+            except:
+                data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
+                log.info("Something went wrong. Skipping account..")
+                print((account, accounts.index(account), "ERROR", start_index, end_index))
+                cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index)
+                 VALUES (%s,%s,%s,%s,%s);''',(account, accounts.index(account), "ERROR", start_index, end_index))
+                connection_obj.commit()
+                log.info(f"DATA IN  MNT_TAX TABLE : {(account, accounts.index(account), 'ERROR')}")
+                sdat.open_website(driver, URL)
+                continue
+        
+    data.to_csv(f'{path}Montgomery County_TAX_test.csv') # add worker
+    log.info(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for.') # add worker
+
+#%% 
+if __name__ == '__main__':
+    print("============== script started ==================")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("start_index", help="Specify the start_index")
+    parser.add_argument("end_index", help="Specify the end_index")
+
+    args = parser.parse_args()
+    start_index = int(args.start_index)
+    end_index = int(args.end_index)
+    log = create_log_object("montgomery_tax", start_index, end_index)
+    log.info("============= started new load ==============")
+
+    county_file_name =  "mnt"
+    path = "complete/"
+    # cursor_obj.execute(f'''SELECT DISTINCT account FROM MNT_TABLE;''')
+    cursor_obj.execute(f'''SELECT distinct(MNT_TABLE.account) FROM MNT_TABLE  
+                            left JOIN MNT_TAX ON MNT_TABLE.account = MNT_TAX.parcel_ID WHERE MNT_TAX.parcel_ID IS NULL;''')
+    accounts_db = cursor_obj.fetchall()
+    accounts = [i[0] for i in accounts_db ]
     data = pd.DataFrame(columns=['parcel_ID',
                                  'owner',
                                  'tax_amount',
@@ -212,95 +313,18 @@ def main(accounts, path):
                                  # 'detail_address',
                                  ],
                         )
-    for account in accounts:
-        print(account)
-        try:
-            table_rows = driver.find_element(By.CLASS_NAME, ".tblReptorcls > tbody > tr")
-            table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
-            data.loc[len(data)] = get_data(driver)
-            searched.append(account)
-            print(f'{len(data)} account done')
-        except:
-            try:
-                WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account)
-                driver.find_element(By.ID, ACCOUNT_GO_ID).click()
-                try:
-                    try:
-                        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")))
-                        table_rows = driver.find_elements(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
-                        table_rows[1].find_elements(By.TAG_NAME, "td")[1].click()
-                        data.loc[len(data)] = get_data_lien(driver)
-                    except:
-                    # view_details(driver)
-                        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")))
-                        table_rows = driver.find_elements(By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")
-                        table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
-                        data.loc[len(data)] = get_data(driver)
-                    searched.append(account)
-                    print(f'{len(data)} account done')
-                except Exception as e:
-                    print(e)
-                    print("No data. Moving on..")
-                    cursor_obj.execute('''INSER INTO MNT_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',
-                                       (account, accounts.index(account), "NO_DATA"))
-                    connection_obj.commit()
-                    log.info(f"DATA IN AA_TAX TABLE : {(account, accounts.index(account), 'NO_DATA')}")
-                    new_search(driver)
-                    searched.append(account)
-                    continue
-                try:
-                    new_search(driver)
-                except:
-                    driver.back()
-                    time.sleep(3)
-                    new_search(driver)
-                if len(data) % 500 == 0:
-                    driver.delete_all_cookies()
-                else:
-                    pass
-            except:
-                try:
-                    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="acsMainInvite"]/div/a[1]'))).click()
-                    print("Clicked pop up..")
-                    sdat.open_website(driver, URL)
-                    continue
-                except:
-                    data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
-                    print("Something went wrong. Skipping account..")
-                    cursor_obj.execute('''INSER INTO MNT_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',
-                                       (account, accounts.index(account), "ERROR"))
-                    connection_obj.commit()
-                    log.info(f"DATA IN AA_TAX TABLE : {(account, accounts.index(account), 'ERROR')}")
-                    sdat.open_website(driver, URL)
-                    continue
-        
-    data.to_csv(f'{path}Montgomery County_TAX_test.csv') # add worker
-    print(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for.') # add worker
 
-#%% 
-if __name__ == '__main__':
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("worker", help="Specify the number of worker from 1 - 5")
-    # parser.add_argument("last_acc", help="Specify the last account the script completed.")
+
+    # df = pd.read_csv(f"complete/Montgomery County_SDAT_test.csv")
+    # # df_tax = pd.read_csv(f'complete/merged_complete_tax_{county_file_name}_data.csv')
     #
-    #
-    # args = parser.parse_args()
-    # arg_worker = int(args.worker)
-    # arg_last_acc = int(args.last_acc)
-
-    county_file_name =  "mnt"
-    path = "complete/"
-
-
-    df = pd.read_csv(f"complete/Montgomery County_SDAT_test.csv")
-    # df_tax = pd.read_csv(f'complete/merged_complete_tax_{county_file_name}_data.csv')
-    
-    df['parcel_ID'] = df['district'].str.rpartition("-")[2]
-    df['parcel_ID'] = df['parcel_ID'].str.strip()
-    # s_accounts = list(df['account_no'].dropna().unique().astype(int))
-    # t_accounts = df_tax['account_number'].dropna().astype(int).unique()
-    # accounts = [str(a).zfill(8) for a in s_accounts if not a in t_accounts]
-    accounts = list(df['parcel_ID'].dropna().unique())
+    # df['parcel_ID'] = df['district'].str.rpartition("-")[2]
+    # df['parcel_ID'] = df['parcel_ID'].str.strip()
+    # # s_accounts = list(df['account_no'].dropna().unique().astype(int))
+    # # t_accounts = df_tax['account_number'].dropna().astype(int).unique()
+    # # accounts = [str(a).zfill(8) for a in s_accounts if not a in t_accounts]
+    # accounts = list(df['parcel_ID'].dropna().unique())
 
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
-    main(accounts[250:280], path)
+    main(data, accounts[start_index:end_index], path, start_index, end_index)
+    print("=========== ended script =====================")
