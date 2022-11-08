@@ -16,10 +16,20 @@ import time
 from functions import sdat_scraper as sdat
 import sqlite3
 from log_utils import create_log_object
+import mysql.connector
 
-connection_obj = sqlite3.Connection("maryland.db")
+
+connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+                                         database='haya_lee',
+                                         user='admin',
+                                         password='Qwerty12345678')
+
 cursor_obj = connection_obj.cursor()
-log = create_log_object("anne_arundel_tax")
+
+
+# connection_obj = sqlite3.Connection("maryland.db")
+# cursor_obj = connection_obj.cursor()
+# log = create_log_object("anne_arundel_tax")
 
 user_agent_list = [
 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
@@ -80,7 +90,7 @@ def get_data(driver):
         owner = driver.find_element(By.ID, OWNER_ID).text
     except: 
         owner = None
-    sql_tax = '''INSERT INTO AA_TAX ( "tax_month", "tax_amount", "parcel_ID", "owner") VALUES (?,?,?,?) '''
+    sql_tax = '''INSERT INTO AA_TAX ( tax_month, tax_amount, parcel_ID, owner) VALUES (%s,%s,%s,%s) '''
     log.info(f"DATA IN AA_TAX TABLE : {(tax_month, tax_amount, account_number, owner)}")
     cursor_obj.execute(sql_tax,(tax_month, tax_amount, account_number, owner))
     connection_obj.commit()
@@ -122,10 +132,11 @@ def main(accounts, path): # , worker
     exceptions = 0
     data = pd.DataFrame(columns=['tax_month', 'tax_amount', 'parcel_ID', 'owner'])
     for account in accounts:
+        log.info(account)
+        account_ = find_account_number(account)
         try:
             # func_check_site_down(driver)
-            log.info(account)
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account)
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account_)
             driver.find_element(By.ID, SEARCH_ID).click()
             WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, DATA_TABLE_ID)))
             # # if [e.text for e in driver.find_elements(By.ID, DATA_TABLE_ID)] != ['']:
@@ -138,28 +149,36 @@ def main(accounts, path): # , worker
             #     log.info(account)
             #     log.info("No data found. Moving on..")
             #     pass
+
             log.info(f'{len(data)}/{len(accounts)} accounts done.')
-            cursor_obj.execute('''INSERT INTO AA_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',(account,accounts.index(account),"DONE"))
+            cursor_obj.execute('''INSERT INTO AA_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',(account_,accounts.index(account),"DONE"))
             connection_obj.commit()
-            searched.append(account)
+            searched.append(account_)
             new_search(driver)
             if len(data) % 500 == 0:
                 driver.delete_all_cookies()
             else:
                 pass
+            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE" WHERE account = {account_}''')
+            connection_obj.commit()
         except NoSuchElementException:
             print("it came here")
             log.info("data not available")
-            cursor_obj.execute('''INSERT INTO AA_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',(account,accounts.index(account),"NO_DATA"))
+            cursor_obj.execute('''INSERT INTO AA_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',(account,accounts.index(account),"NO_DATA"))
             connection_obj.commit()
-            log.info(f"DATA IN AA_TAX TABLE : {(account,accounts.index(account),'NO_DATA')}")
+            log.info(f"DATA IN AA_TAX TABLE : {(account_,accounts.index(account),'NO_DATA')}")
+            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE_but_no_data" WHERE account = {account_}''')
+            connection_obj.commit()
         except Exception as e :
             print("it came there")
             log.info(e)
             log.info("Something went wrong. Skipping account..")
-            cursor_obj.execute('''INSERT INTO AA_RETRY ("parcel_id","index_parcel","status") VALUES (?,?,?);''',(account,accounts.index(account),"ERROR"))
+            cursor_obj.execute('''INSERT INTO AA_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',(account,accounts.index(account),"ERROR"))
             connection_obj.commit()
-            log.info(f"DATA IN AA_TAX TABLE : {(account, accounts.index(account), 'ERROR')}")
+            log.info(f"DATA IN AA_TAX TABLE : {(account_, accounts.index(account), 'ERROR')}")
+            cursor_obj.execute(f'''UPDATE aa_status SET status = "DONE_but_no_data" WHERE account = {account_}''')
+            connection_obj.commit()
+
             # searched.append(account)
             # exceptions += 1
             # if exceptions > 2000:
@@ -173,24 +192,37 @@ def main(accounts, path): # , worker
     log.info(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for.') # add worker
 #%% 
 if __name__ == '__main__':
+    print("=============== SCRIPT STARTED ============== ")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("start_index", help="Specify the start_index")
+    parser.add_argument("end_index", help="Specify the end_index")
 
+    args = parser.parse_args()
+    start_index = int(args.start_index)
+    end_index = int(args.end_index)
+    log = create_log_object("anne_arundel_tax", start_index, end_index)
+    log.info("============= started new load ==============")
     path = "complete/"
     # df = pd.read_csv(f'complete/Anne Arundel County_SDAT_test.csv')
     # log.info(df)
     # df['account_no'] = df['district'].apply(lambda x: find_account_number(x))
     # accounts = list(df['account_no'].dropna().unique())
     print("=========== scraping started =======================")
-    cursor_obj.execute('''SELECT * FROM AA_RETRY ORDER BY created_at DESC LIMIT 1;''')
-    db_data = cursor_obj.fetchone()
-    # log.info(db_data)
-    index_parcel_db = db_data[1] if db_data else 0
-    cursor_obj.execute('''SELECT DISTINCT parcel_id FROM AA_TABLE;''')
+    # cursor_obj.execute('''SELECT * FROM AA_RETRY ORDER BY created_at DESC LIMIT 1;''')
+    # db_data = cursor_obj.fetchone()
+    # # log.info(db_data)
+    # index_parcel_db = db_data[1] if db_data else 0
+    cursor_obj.execute(f'''SELECT distinct(AA_TABLE.district) FROM AA_TABLE  
+                            left JOIN AA_TAX ON AA_TABLE.account = AA_TAX.parcel_ID WHERE AA_TAX.parcel_ID IS NULL;''')
     account_db = cursor_obj.fetchall()
-    accounts = [i[0] for i in account_db[int(index_parcel_db):]]
+    accounts = [i[0] for i in account_db[start_index:end_index]]
     # log.info(accounts)
+    for i in accounts:
+        cursor_obj.execute('''INSERT INTO aa_status (account,start_index,end_index,status) 
+        VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
+        connection_obj.commit()
 
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
     main(accounts, path)
 
 
-#### INDEXING THIK KARNA HAI
