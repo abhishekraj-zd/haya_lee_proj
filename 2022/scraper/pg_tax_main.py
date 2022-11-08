@@ -269,13 +269,16 @@ def main(accounts, path):
 
 
 if __name__ == '__main__':
+    print("=============== SCRIPT STARTED ============== ")
     parser = argparse.ArgumentParser()
     parser.add_argument("start_index", help="Specify the start index")
     parser.add_argument("end_index", help="Specify the end_index")
     #
     args = parser.parse_args()
-    start_index = int(args.worker)
-    end_index = int(args.last_acc)
+    start_index = int(args.start_index)
+    end_index = int(args.end_index)
+    log = create_log_object("pg_tax", start_index, end_index)
+    log.info("============= started new load ==============")
 
     county_file_name =  "pg"
     path = "complete/"
