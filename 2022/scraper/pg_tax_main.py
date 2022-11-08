@@ -283,7 +283,7 @@ if __name__ == '__main__':
     county_file_name =  "pg"
     path = "complete/"
     cursor_obj.execute(f'''SELECT distinct(PG_TABLE.district) FROM PG_TABLE  
-                            left JOIN PG_status ON PG_TABLE.district = PG_status.account WHERE PG_status.account IS NULL;''')
+                            left JOIN pg_status ON PG_TABLE.district = pg_status.account WHERE pg_status.account IS NULL;''')
     accounts_db = cursor_obj.fetchall()
     accounts = [i[0] for i in accounts_db]
     print("loading data into status table")
