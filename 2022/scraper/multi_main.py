@@ -9,6 +9,7 @@ import timeit
 from functions import sdat_scraper as sdat
 from selenium.webdriver.common.keys import Keys
 import sqlite3
+import argparse
 
 from log_utils import create_log_object
 
@@ -57,7 +58,7 @@ SEARCH_RESULT_ID = 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSea
 DETAILS_PREVIOUS_ID = 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_btnPrevious_top2'
 ERROR_ID = 'cphMainContentArea_ucSearchType_lblErr'
 
-# -------SDAT DATA ID------------ # 
+# -------SDAT DATA ID------------ #
 DISTRICT_ID = 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch_lblDetailsStreetHeader_0'
 ACCOUNT_ID = 'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch_lblDetailsStreetHeader_0'
 OWNER_NAME_ID_1 =  'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_dlstDetaisSearch_lblOwnerName_0'
@@ -94,18 +95,21 @@ BATH = "cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucDetailsSearch_d
 
 from time import perf_counter
 
-arg_county_index = 1
-if COUNTIES[arg_county_index] == 'Anne Arundel County':
-    county_file_name = "anne_arundel"
-    path = "complete/"
-elif COUNTIES[arg_county_index] == 'Montgomery County':
-    county_file_name = "montgomery"
-    path = "complete/"
-else:
-    county_file_name = "prince_george_s"
-    path = "complete/"
-
-log = create_log_object(county_file_name)
+# arg_county_index = 1
+# start_index = 1501
+# end_index = 2000
+#
+# if COUNTIES[arg_county_index] == 'Anne Arundel County':
+#     county_file_name = "anne_arundel"
+#     path = "complete/"
+# elif COUNTIES[arg_county_index] == 'Montgomery County':
+#     county_file_name = "montgomery"
+#     path = "complete/"
+# else:
+#     county_file_name = "prince_george_s"
+#     path = "complete/"
+#
+# log = create_log_object(county_file_name, start_index, end_index)
 
 class catchtime:
     def __enter__(self):
@@ -120,9 +124,9 @@ class catchtime:
 
 def get_data(driver, county):
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, DISTRICT_ID)))
-    try: 
+    try:
         district = driver.find_element(By.ID, DISTRICT_ID).text
-    except: 
+    except:
         district = None
     try:
         account_no = driver.find_element(By.ID, ACCOUNT_ID).text.split("Account Number -")[1]
@@ -165,25 +169,25 @@ def get_data(driver, county):
     #     owner_name_3 = driver.find_element(By.ID, OWNER_NAME_ID_3).text
     # except:
     #     owner_name_3 = None
-    try: 
+    try:
         mailing = driver.find_element(By.ID, MAILING_ADDRESS_ID ).text
-    except: 
+    except:
         mailing = None
-    try:     
+    try:
         use = driver.find_element(By.ID, USE_ID).text
-    except: 
+    except:
         use = None
-    try: 
+    try:
         principal_residence = driver.find_element(By.ID, PRINCIPAL_RESIDENCE_ID).text
-    except: 
-        principal_residence = None 
-    try: 
+    except:
+        principal_residence = None
+    try:
         deed_reference = driver.find_element(By.ID, DEED_REFERENCE_ID).text
-    except:     
-        deed_reference = None 
-    try: 
+    except:
+        deed_reference = None
+    try:
         map_id = driver.find_element(By.ID, MAP_ID).text
-    except: 
+    except:
         map_id = None
     try:
         parcel = driver.find_element(By.ID, PARCEL_ID).text
@@ -191,28 +195,28 @@ def get_data(driver, county):
         parcel = None
     try:
         block_id = driver.find_element(By.ID, BLOCK_ID).text
-    except: 
-        block_id = None 
-    try:     
+    except:
+        block_id = None
+    try:
         subdivision = driver.find_element(By.ID, SUBDIVISION_ID).text
-    except: 
+    except:
         subdivision = None
-    try:     
+    try:
         plat_id = driver.find_element(By.ID, PLAT_ID).text
     except:
         plat_id = None
-    try:    
+    try:
         structure_built = driver.find_element(By.ID, STRUCTURE_BUILT_ID).text
-    except: 
-        structure_built = None 
-    try:         
+    except:
+        structure_built = None
+    try:
         living_area = driver.find_element(By.ID, LIVING_AREA_ID).text
     except:
         living_area = None
-    try:         
+    try:
         land_area = driver.find_element(By.ID, LAND_AREA_ID).text
-    except: 
-        land_area = None 
+    except:
+        land_area = None
     try:
         basement = driver.find_element(By.ID, BASEMENT_ID).text
         if basement == "":
@@ -227,31 +231,31 @@ def get_data(driver, county):
         finished_basement_area = "NA"
     try:
         land_value = driver.find_element(By.ID, LAND_VALUE_ID).text
-    except: 
+    except:
         land_value = None
-    try: 
+    try:
         improvement_value = driver.find_element(By.ID, IMPROVEMENT_VALUE_ID).text
-    except: 
+    except:
         improvement_value = None
-    try: 
+    try:
         seller = driver.find_element(By.ID, SELLER_ID).text
-    except: 
+    except:
         seller = None
-    try: 
+    try:
         date = driver.find_element(By.ID, DATE_ID).text
-    except: 
-        date = None    
-    try: 
+    except:
+        date = None
+    try:
         price = driver.find_element(By.ID, PRICE_ID).text
-    except: 
-        price = None   
-    try: 
+    except:
+        price = None
+    try:
         premises = driver.find_element(By.ID, PREMISES_ID).text
-    except: 
-        premises = None   
-    try: 
+    except:
+        premises = None
+    try:
         assessed_value = driver.find_element(By.ID, ASSESSED_VALUE_ID).text
-    except: 
+    except:
         assessed_value = None
     try:
         transfer_type = driver.find_element(By.ID, TRANSFER_INFO_TYPE_ID).text
@@ -363,18 +367,18 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
         current_page += 1
         if current_page > total_pages:
             return data
-        else: 
-            try: 
+        else:
+            try:
                 WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.LINK_TEXT, f"{current_page}"))).click()
                 log.info(f"Clicked on page {current_page}.")
                 time.sleep(10)
-            except: 
+            except:
                 if total_pages - current_page > 1:
                     log.info(f"Cannot access page {current_page}. Skipping to {current_page+1} page.")
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.LINK_TEXT, f"{current_page+1}"))).click()
                     time.sleep(10)
                     continue
-                else: 
+                else:
                     log.info("No more pages to skip to. Breaking out of loop to next search term.")
                     return data
     return data
@@ -382,10 +386,11 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
 def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONTINUE_CLASS, RESULT_PREVIOUS_ID, DETAILS_PREVIOUS_ID, county, path, index_of_street_db, page, start_row, start, end):
     searched_terms = []
 
-    try: 
+    try:
         for street in search_terms:
             with catchtime() as t:
                 try:
+                    print(f"street name : {street} search start")
                     log.info(f"street name : {street} search start")
                     driver.find_element(By.ID, STREET_NAME_ID).send_keys(street)
                     driver.find_element(By.CLASS_NAME, CONTINUE_CLASS).click()
@@ -503,7 +508,7 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
         return data, searched_terms
 
 
-#%% 
+#%%
 def main_search(driver, search_terms, county, path, index_of_street, page, start_row, start, end):
     start_time_1 = timeit.default_timer()
     # searched_terms = []
@@ -568,33 +573,30 @@ def func_check_site_down(driver):
         else:
             check = False
 
-#%% 
+#%%
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("county_index", help="0 - Anne Arundel, 1 - Montgomery, 2 - Prince George's")
-    # parser.add_argument("worker", help="Specify the number of worker from 1 - 10")
-    # parser.add_argument("last_page", help="Specify the last page the script completed.")
-    #
-    # args = parser.parse_args()
-    # arg_county_index = int(args.county_index)
-    # arg_worker = int(args.worker)
-    # arg_last_page = int(args.last_page)
-    # for i in range(3):
-    arg_county_index = 1
-    start_index = 1000
-    end_index = 1500
-    # if COUNTIES[arg_county_index] == 'Anne Arundel County':
-    #     county_file_name =  "anne_arundel"
-    #     path = "complete/"
-    # elif COUNTIES[arg_county_index] == 'Montgomery County':
-    #     county_file_name =  "montgomery"
-    #     path = "complete/"
-    # else:
-    #     county_file_name =  "prince_george_s"
-    #     path = "complete/"
-    #
-    #
-    # log = create_log_object(county_file_name)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("county_index", help="0 - Anne Arundel, 1 - Montgomery, 2 - Prince George's")
+    parser.add_argument("start_index", help="start index to run")
+    parser.add_argument("end_index", help="end index to run")
+    args = parser.parse_args()
+    print('args: ', args)
+    arg_county_index = int(args.county_index)
+    start_index = int(args.start_index)
+    end_index = int(args.end_index)
+
+    if COUNTIES[arg_county_index] == 'Anne Arundel County':
+        county_file_name = "anne_arundel"
+        path = "complete/"
+    elif COUNTIES[arg_county_index] == 'Montgomery County':
+        county_file_name = "montgomery"
+        path = "complete/"
+    else:
+        county_file_name = "prince_george_s"
+        path = "complete/"
+
+    log = create_log_object(county_file_name, start_index, end_index)
+
     print(" ***************** Starting script ********")
     log.info(" ****************************** LOGGING NEW LOAD **********************************")
 
