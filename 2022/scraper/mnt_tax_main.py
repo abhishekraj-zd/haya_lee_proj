@@ -114,8 +114,8 @@ def get_data(driver):
         account_number =  driver.find_element(By.ID, ACCOUNT_NO_ID).text
     except:
         account_number = None
-    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage) VALUES (%s,%s,%s,%s,%s,%s,%s) '''
-    cursor_obj.execute(sql_tax,(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage))
+    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
+    cursor_obj.execute(sql_tax,(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage, "DONE"))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage # detail_address, prop_address, occupancy, block, district, sub
 
