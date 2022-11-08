@@ -209,7 +209,7 @@ def main(data, accounts, path, start_index, end_index):
     sdat.open_website(driver, URL)
 
     for account in accounts:
-        account = account.strip()
+        account_ = account.strip()
         log.info(account)
         # try:
         #     table_rows = driver.find_element(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
@@ -221,7 +221,7 @@ def main(data, accounts, path, start_index, end_index):
         #     log.info(e)
         #     print(e)
         try:
-            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account)
+            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account_)
             driver.find_element(By.ID, ACCOUNT_GO_ID).click()
             try:
                 try:
