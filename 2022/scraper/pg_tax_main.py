@@ -63,7 +63,7 @@ IP_ID = 'lblinp1'
 AMOUNT_ID = 'lbltot1'
 #%% 
 
-def get_data(driver):
+def get_data(driver,log):
     try: 
         tax_month = driver.find_element(By.ID,'lblpyln5col1').text
     except: 
@@ -124,7 +124,7 @@ def get_data(driver):
     log.info(f"DATA INSERTED IN PG_TAX : {(tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount)}")
     return tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount #block
 
-def get_sale_data(driver):
+def get_sale_data(driver,log):
     try: 
         tax_month = driver.find_element(By.ID, 'lblpyln5col1').text
     except:
@@ -200,7 +200,7 @@ def new_search(driver):
          WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.LINK_TEXT, 'New Search'))).click()
 
 #%% 
-def main(accounts, path, status_index, end_index):
+def main(accounts, path, status_index, end_index, log):
     driver = sdat.get_driver(DRIVER_PATH, user_agent_list)
     sdat.open_website(driver, URL)
     searched = []
@@ -217,17 +217,17 @@ def main(accounts, path, status_index, end_index):
                     get_to_last_page(driver)
                     if driver.find_element(By.XPATH, '//*[@id="dgSummary"]/tbody/tr[last()-1]/td[3]').text == 'TAX SALE DETAILS':
                         driver.find_element(By.XPATH, '//*[@id="dgSummary"]/tbody/tr[last()-1]/td[1]').click()
-                        data.loc[len(data)] = get_sale_data(driver)
+                        data.loc[len(data)] = get_sale_data(driver,log)
                     else: 
                         driver.find_element(By.XPATH, '//*[@id="dgSummary"]/tbody/tr[last()-1]/td[1]').click()
-                        data.loc[len(data)] = get_data(driver)
+                        data.loc[len(data)] = get_data(driver,log)
                 else: 
                     if driver.find_element(By.XPATH, '//*[@id="dgSummary"]/tbody/tr[last()]/td[3]').text == 'TAX SALE DETAILS':
                         driver.find_element(By.XPATH, '//*[@id="dgSummary"]/tbody/tr[last()]/td[1]').click()
-                        data.loc[len(data)] = get_sale_data(driver)
+                        data.loc[len(data)] = get_sale_data(driver,log)
                     else: 
                         driver.find_element(By.XPATH, '//*[@id="dgSummary"]/tbody/tr[last()]/td[1]').click()
-                        data.loc[len(data)] = get_data(driver)
+                        data.loc[len(data)] = get_data(driver, log)
                 cursor_obj.execute('''INSERT INTO PG_RETRY (parcel_id,index_parcel,status, start_index, end_index) VALUES (%s,%s,%s,%s,%s);''',
                                    (account, accounts.index(account), "DONE_but_no_data", status_index, end_index))
                 connection_obj.commit()
@@ -272,7 +272,7 @@ def main(accounts, path, status_index, end_index):
 
 
 if __name__ == '__main__':
-    log.info("=============== SCRIPT STARTED ============== ")
+    print("=============== SCRIPT STARTED ============== ")
     parser = argparse.ArgumentParser()
     parser.add_argument("start_index", help="Specify the start index")
     parser.add_argument("end_index", help="Specify the end_index")
@@ -303,7 +303,8 @@ if __name__ == '__main__':
     connection_obj.commit()
     log.info("data inserted in status table")
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
-    main(accounts, path, start_index, end_index)
+    main(accounts, path, start_index, end_index, log)
+    print("=================== script ended ===================")
 #%%
 
 
