@@ -289,7 +289,7 @@ if __name__ == '__main__':
                             left JOIN pg_status ON PG_TABLE.account = pg_status.account WHERE pg_status.account IS NULL;''')
     accounts_db = cursor_obj.fetchall()
     accounts = [i[0] for i in accounts_db[start_index:end_index]]
-    log.info(f"loading data into status table for :{len(accounts)}")
+    print(f"loading data into status table for :{len(accounts)}")
     query_data = []
     for i in accounts:
         query_data.append((i,start_index,end_index,"RUNNING"))
@@ -301,7 +301,7 @@ if __name__ == '__main__':
         VALUES (%s,%s,%s,%s)'''
     cursor_obj.executemany(query, query_data)
     connection_obj.commit()
-    log.info("data inserted in status table")
+    print("data inserted in status table")
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
     main(accounts, path, start_index, end_index, log)
     print("=================== script ended ===================")
