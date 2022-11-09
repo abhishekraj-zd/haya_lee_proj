@@ -217,11 +217,22 @@ if __name__ == '__main__':
     account_db = cursor_obj.fetchall()
     accounts = [i[0] for i in account_db[start_index:end_index]]
     # log.info(accounts)
-    print("loading data into status table")
+    # print("loading data into status table")
+    # for i in accounts:
+    #     cursor_obj.execute('''INSERT INTO aa_status (account,start_index,end_index,status)
+    #     VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
+    #     connection_obj.commit()
+
+    print(f"loading data into status table for :{len(accounts)}")
+    query_data = []
     for i in accounts:
-        cursor_obj.execute('''INSERT INTO aa_status (account,start_index,end_index,status) 
-        VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
-        connection_obj.commit()
+        query_data.append((i, start_index, end_index, "RUNNING"))
+    log.info(query_data)
+    query = '''INSERT INTO aa_status (account,start_index,end_index,status)
+           VALUES (%s,%s,%s,%s)'''
+    cursor_obj.executemany(query, query_data)
+    connection_obj.commit()
+
     print("data inserted in status table")
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
     main(accounts, path)
