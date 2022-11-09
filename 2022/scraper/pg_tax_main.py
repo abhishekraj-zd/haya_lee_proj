@@ -118,9 +118,10 @@ def get_data(driver):
         amount = None
         
     tax_sale = None
-    sql_tax = '''INSERT INTO PG_TAX ( "tax_month", "tax_amount", "parcel_ID", "owner", "tax_sale", "attorney_name", "attorney_phone", "purchaser_name", "equity_case_no", "bid_amount", "base", "ip", "amount") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) '''
-    cursor_obj.execute(sql_tax, (tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount))
+    sql_tax = '''INSERT INTO PG_TAX ( tax_month, tax_amount, parcel_ID, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) '''
+    cursor_obj.execute(sql_tax, (tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount, ""))
     connection_obj.commit()
+    log.info(f"DATA INSERTED IN PG_TAX : {(tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount)}")
     return tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount #block
 
 def get_sale_data(driver):
@@ -180,8 +181,8 @@ def get_sale_data(driver):
         amount = driver.find_element(By.ID, AMOUNT_ID).text
     except:
         amount = None
-    sql_tax = '''INSERT INTO PG_TAX ( tax_month, tax_amount, parcel_ID, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) '''
-    cursor_obj.execute(sql_tax, (tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount))
+    sql_tax = '''INSERT INTO PG_TAX ( tax_month, tax_amount, parcel_ID, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) '''
+    cursor_obj.execute(sql_tax, (tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount,""))
     connection_obj.commit()
     return tax_month, tax_amount, account_number, owner, tax_sale, attorney_name, attorney_phone, purchaser_name, equity_case_no, bid_amount, base, ip, amount #block
 
@@ -199,16 +200,17 @@ def new_search(driver):
          WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.LINK_TEXT, 'New Search'))).click()
 
 #%% 
-def main(accounts, path):
+def main(accounts, path, status_index, end_index):
     driver = sdat.get_driver(DRIVER_PATH, user_agent_list)
     sdat.open_website(driver, URL)
     searched = []
     data = pd.DataFrame(columns=['tax_month', 'tax_amount', 'parcel_ID', 'owner', 'tax_sale', 'attorney_name', 'attorney_phone', 'purchaser_name', 'equity_case_no', 'bid_amount', 'base', 'ip', 'amount']) #block
     for account in accounts:
         print(account)
+        account_ = account.strip()
         exceptions = 0
         try: 
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account)
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, ACCOUNT_ID))).send_keys(account_)
             driver.find_element(By.ID, ACCOUNT_GO_ID).click()
             if [e.text for e in driver.find_elements(By.ID, DATA_TABLE_ID)] != ['']:
                 if [e.text for e in driver.find_elements(By.LINK_TEXT, 'Next')] == ['Next']:
@@ -226,15 +228,15 @@ def main(accounts, path):
                     else: 
                         driver.find_element(By.XPATH, '//*[@id="dgSummary"]/tbody/tr[last()]/td[1]').click()
                         data.loc[len(data)] = get_data(driver)
-                cursor_obj.execute('''INSERT INTO PG_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',
-                                   (account, accounts.index(account), "DONE"))
+                cursor_obj.execute('''INSERT INTO PG_RETRY (parcel_id,index_parcel,status, start_index, end_index) VALUES (%s,%s,%s,%s,%s);''',
+                                   (account, accounts.index(account), "DONE_but_no_data", status_index, end_index))
                 connection_obj.commit()
                 cursor_obj.execute(f'''UPDATE pg_status SET status = "DONE" WHERE account = "{account}"''')
                 connection_obj.commit()
             else: 
                 print("No data found. Moving on..")
-                cursor_obj.execute('''INSERT INTO PG_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',
-                                   (account, accounts.index(account), "NO_DATA"))
+                cursor_obj.execute('''INSERT INTO PG_RETRY (parcel_id,index_parcel,status, start_index, end_index) VALUES (%s,%s,%s,%s,%s);''',
+                                   (account, accounts.index(account), "DONE_but_no_data", status_index, end_index))
                 connection_obj.commit()
                 cursor_obj.execute(f'''UPDATE pg_status SET status = "DONE_but_no_data" WHERE account = "{account}"''')
                 connection_obj.commit()
@@ -251,8 +253,9 @@ def main(accounts, path):
         except Exception as e:
             print(e)
             print("Something went wrong. Skipping account..")
-            cursor_obj.execute('''INSERT INTO PG_RETRY (parcel_id,index_parcel,status) VALUES (%s,%s,%s);''',
-                               (account, accounts.index(account), "ERROR"))
+            cursor_obj.execute(
+                '''INSERT INTO PG_RETRY (parcel_id,index_parcel,status, start_index, end_index) VALUES (%s,%s,%s,%s,%s);''',
+                (account, accounts.index(account), "DONE_but_no_data", status_index, end_index))
             connection_obj.commit()
             cursor_obj.execute(f'''UPDATE pg_status SET status = "ERROR" WHERE account = "{account}"''')
             connection_obj.commit()
@@ -282,18 +285,25 @@ if __name__ == '__main__':
 
     county_file_name =  "pg"
     path = "complete/"
-    cursor_obj.execute(f'''SELECT distinct(PG_TABLE.district) FROM PG_TABLE  
-                            left JOIN pg_status ON PG_TABLE.district = pg_status.account WHERE pg_status.account IS NULL;''')
+    cursor_obj.execute(f'''SELECT distinct(PG_TABLE.account) FROM PG_TABLE  
+                            left JOIN pg_status ON PG_TABLE.account = pg_status.account WHERE pg_status.account IS NULL;''')
     accounts_db = cursor_obj.fetchall()
-    accounts = [i[0] for i in accounts_db]
-    print("loading data into status table")
+    accounts = [i[0] for i in accounts_db[start_index:end_index]]
+    print(f"loading data into status table for :{len(accounts)}")
+    query_data = []
     for i in accounts:
-        cursor_obj.execute('''INSERT INTO aa_status (account,start_index,end_index,status) 
-        VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
-        connection_obj.commit()
+        query_data.append((i,start_index,end_index,"RUNNING"))
+        # cursor_obj.execute('''INSERT INTO pg_status (account,start_index,end_index,status)
+        # VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
+        # connection_obj.commit()
+    print(query_data)
+    query = '''INSERT INTO pg_status (account,start_index,end_index,status)
+        VALUES (%s,%s,%s,%s)'''
+    cursor_obj.executemany(query, query_data)
+    connection_obj.commit()
     print("data inserted in status table")
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
-    main(accounts, path)
+    main(accounts, path, start_index, end_index)
 #%%
 
 
