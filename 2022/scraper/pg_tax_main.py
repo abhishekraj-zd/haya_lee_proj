@@ -206,7 +206,7 @@ def main(accounts, path, status_index, end_index):
     searched = []
     data = pd.DataFrame(columns=['tax_month', 'tax_amount', 'parcel_ID', 'owner', 'tax_sale', 'attorney_name', 'attorney_phone', 'purchaser_name', 'equity_case_no', 'bid_amount', 'base', 'ip', 'amount']) #block
     for account in accounts:
-        print(account)
+        log.info(account)
         account_ = account.strip()
         exceptions = 0
         try: 
@@ -234,7 +234,7 @@ def main(accounts, path, status_index, end_index):
                 cursor_obj.execute(f'''UPDATE pg_status SET status = "DONE" WHERE account = "{account}"''')
                 connection_obj.commit()
             else: 
-                print("No data found. Moving on..")
+                log.info("No data found. Moving on..")
                 cursor_obj.execute('''INSERT INTO PG_RETRY (parcel_id,index_parcel,status, start_index, end_index) VALUES (%s,%s,%s,%s,%s);''',
                                    (account, accounts.index(account), "DONE_but_no_data", status_index, end_index))
                 connection_obj.commit()
@@ -242,7 +242,7 @@ def main(accounts, path, status_index, end_index):
                 connection_obj.commit()
                 searched.append(account)
                 pass
-            print(f'{len(data)}/{len(accounts)} accounts done.')
+            log.info(f'{len(data)}/{len(accounts)} accounts done.')
             new_search(driver)
             searched.append(account)
             if len(data) % 500 == 0:
@@ -251,8 +251,8 @@ def main(accounts, path, status_index, end_index):
                 pass
 
         except Exception as e:
-            print(e)
-            print("Something went wrong. Skipping account..")
+            log.info(e)
+            log.info("Something went wrong. Skipping account..")
             cursor_obj.execute(
                 '''INSERT INTO PG_RETRY (parcel_id,index_parcel,status, start_index, end_index) VALUES (%s,%s,%s,%s,%s);''',
                 (account, accounts.index(account), "DONE_but_no_data", status_index, end_index))
@@ -265,14 +265,14 @@ def main(accounts, path, status_index, end_index):
                 sdat.open_website(driver, URL)
                 continue
             else:
-                print('Too many exceptions, stopping loop..')
+                log.info('Too many exceptions, stopping loop..')
                 break
     data.to_csv(f"{path}Prince George's County_TAX.csv") # add worker
-    print(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for .') # add worker
+    log.info(f'Loop completed with {len(searched)} out of {len(accounts)} accounts for .') # add worker
 
 
 if __name__ == '__main__':
-    print("=============== SCRIPT STARTED ============== ")
+    log.info("=============== SCRIPT STARTED ============== ")
     parser = argparse.ArgumentParser()
     parser.add_argument("start_index", help="Specify the start index")
     parser.add_argument("end_index", help="Specify the end_index")
@@ -289,19 +289,19 @@ if __name__ == '__main__':
                             left JOIN pg_status ON PG_TABLE.account = pg_status.account WHERE pg_status.account IS NULL;''')
     accounts_db = cursor_obj.fetchall()
     accounts = [i[0] for i in accounts_db[start_index:end_index]]
-    print(f"loading data into status table for :{len(accounts)}")
+    log.info(f"loading data into status table for :{len(accounts)}")
     query_data = []
     for i in accounts:
         query_data.append((i,start_index,end_index,"RUNNING"))
         # cursor_obj.execute('''INSERT INTO pg_status (account,start_index,end_index,status)
         # VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
         # connection_obj.commit()
-    print(query_data)
+    log.info(query_data)
     query = '''INSERT INTO pg_status (account,start_index,end_index,status)
         VALUES (%s,%s,%s,%s)'''
     cursor_obj.executemany(query, query_data)
     connection_obj.commit()
-    print("data inserted in status table")
+    log.info("data inserted in status table")
     # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
     main(accounts, path, start_index, end_index)
 #%%
