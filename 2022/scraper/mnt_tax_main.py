@@ -311,7 +311,7 @@ if __name__ == '__main__':
         data = cursor_obj.fetchall()
 
         if data:
-            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = FALSE where county_index = 1;''')
+            cursor_obj.execute('''UPDATEflag_table SET flag = FALSE where county_index = 1;''')
     # cursor_obj.execute(f'''SELECT DISTINCT account FROM MNT_TABLE;''')
             cursor_obj.execute(f'''SELECT distinct(MNT_TABLE.account) FROM MNT_TABLE  
                                     left JOIN mnt_status ON trim(MNT_TABLE.account) = trim(mnt_status.account) WHERE mnt_status.account IS NULL;''')
@@ -331,7 +331,7 @@ if __name__ == '__main__':
             cursor_obj.executemany(query, query_data)
             connection_obj.commit()
             print("data inserted in status table")
-            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = TRUE where county_index = 1;''')
+            cursor_obj.execute('''UPDATE flag_table SET flag = TRUE where county_index = 1;''')
             data = pd.DataFrame(columns=['parcel_ID',
                                          'owner',
                                          'tax_amount',

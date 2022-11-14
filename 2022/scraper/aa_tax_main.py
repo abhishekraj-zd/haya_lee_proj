@@ -229,7 +229,7 @@ if __name__ == '__main__':
         data = cursor_obj.fetchall()
 
         if data:
-            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = FALSE where county_index = 0;''')
+            cursor_obj.execute('''UPDATE flag_table SET flag = FALSE where county_index = 0;''')
             cursor_obj.execute(f'''SELECT distinct(AA_TABLE.district) FROM AA_TABLE
                                     left JOIN aa_status ON AA_TABLE.district = aa_status.account WHERE aa_status.account IS NULL;''')
             account_db = cursor_obj.fetchall()
@@ -253,7 +253,7 @@ if __name__ == '__main__':
         #UPDATE FLAG=TRUE
 
             print("data inserted in status table")
-            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = TRUE where county_index = 0;''')
+            cursor_obj.execute('''UPDATE flag_table SET flag = TRUE where county_index = 0;''')
         # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
             main(accounts, path)
             check = False
@@ -263,3 +263,4 @@ if __name__ == '__main__':
             time.sleep(3)
 
 
+    print("============ script ended ================")
