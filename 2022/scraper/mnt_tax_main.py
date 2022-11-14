@@ -14,11 +14,16 @@ import sqlite3
 import mysql.connector
 from log_utils import create_log_object
 
+#
+# connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+#                                          database='haya_lee',
+#                                          user='admin',
+#                                          password='Qwerty12345678')
 
-connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+connection_obj = mysql.connector.connect(host='localhost',
                                          database='haya_lee',
-                                         user='admin',
-                                         password='Qwerty12345678')
+                                         user='root',
+                                         password='12345678')
 
 cursor_obj = connection_obj.cursor()
 
@@ -237,13 +242,17 @@ def main(data, accounts, path, start_index, end_index):
                     data.loc[len(data)] = get_data(driver)
                 searched.append(account)
                 log.info(f'{len(data)} account done')
+                cursor_obj.execute(f'''UPDATE mnt_status SET status = "DONE" WHERE account = "{account}"''')
+                connection_obj.commit()
             except Exception as e:
                 log.info(e)
                 log.info("No data. Moving on..")
                 cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index) VALUES (%s,%s,%s,%s,%s);''',
                                    (account, accounts.index(account), "NO_DATA", start_index, end_index))
                 connection_obj.commit()
-                log.info(f"DATA IN MNT_TAX TABLE : {(account, accounts.index(account), 'NO_DATA')}")
+                log.info(f"DATA IN MNT_RETRY TABLE : {(account, accounts.index(account), 'NO_DATA')}")
+                cursor_obj.execute(f'''UPDATE mnt_status SET status = "NO_DATA" WHERE account = "{account}"''')
+                connection_obj.commit()
                 new_search(driver)
                 searched.append(account)
                 continue
@@ -270,7 +279,9 @@ def main(data, accounts, path, start_index, end_index):
                 cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index)
                  VALUES (%s,%s,%s,%s,%s);''',(account, accounts.index(account), "ERROR", start_index, end_index))
                 connection_obj.commit()
-                log.info(f"DATA IN  MNT_TAX TABLE : {(account, accounts.index(account), 'ERROR')}")
+                log.info(f"DATA IN  MNT_RETRY TABLE : {(account, accounts.index(account), 'ERROR')}")
+                cursor_obj.execute(f'''UPDATE mnt_status SET status = "ERROR" WHERE account = "{account}"''')
+                connection_obj.commit()
                 sdat.open_website(driver, URL)
                 continue
         
@@ -293,38 +304,64 @@ if __name__ == '__main__':
 
     county_file_name =  "mnt"
     path = "complete/"
+
+    check = True
+    while check:
+        cursor_obj.execute('''SELECT flag FROM flag_table WHERE county_index = 1;''')
+        data = cursor_obj.fetchall()
+
+        if data:
+            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = FALSE where county_index = 1;''')
     # cursor_obj.execute(f'''SELECT DISTINCT account FROM MNT_TABLE;''')
-    cursor_obj.execute(f'''SELECT distinct(MNT_TABLE.account) FROM MNT_TABLE  
-                            left JOIN MNT_TAX ON MNT_TABLE.account = MNT_TAX.parcel_ID WHERE MNT_TAX.parcel_ID IS NULL;''')
-    accounts_db = cursor_obj.fetchall()
-    accounts = [i[0] for i in accounts_db ]
-    data = pd.DataFrame(columns=['parcel_ID',
-                                 'owner',
-                                 'tax_amount',
-                                 'tax_period',
-                                 'lot',
-                                 # 'block',
-                                 # 'district',
-                                 # 'sub',
-                                 'class_id',
-                                 # 'occupancy',
-                                 'mortgage',
-                                 # 'prop_address',
-                                 # 'detail_address',
-                                 ],
-                        )
+            cursor_obj.execute(f'''SELECT distinct(MNT_TABLE.account) FROM MNT_TABLE  
+                                    left JOIN mnt_status ON trim(MNT_TABLE.account) = trim(mnt_status.account) WHERE mnt_status.account IS NULL;''')
+            accounts_db = cursor_obj.fetchall()
+            accounts = [i[0] for i in accounts_db[start_index:end_index] ]
+            query_data = []
+            for i in accounts:
+                query_data.append((i,start_index,end_index,"RUNNING"))
+                # cursor_obj.execute('''INSERT INTO pg_status (account,start_index,end_index,status)
+                # VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
+                # connection_obj.commit()
+            log.info(query_data)
+            print(len(query_data))
 
+            query = '''INSERT INTO mnt_status (account,start_index,end_index,status)
+                VALUES (%s,%s,%s,%s)'''
+            cursor_obj.executemany(query, query_data)
+            connection_obj.commit()
+            print("data inserted in status table")
+            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = TRUE where county_index = 1;''')
+            data = pd.DataFrame(columns=['parcel_ID',
+                                         'owner',
+                                         'tax_amount',
+                                         'tax_period',
+                                         'lot',
+                                         # 'block',
+                                         # 'district',
+                                         # 'sub',
+                                         'class_id',
+                                         # 'occupancy',
+                                         'mortgage',
+                                         # 'prop_address',
+                                         # 'detail_address',
+                                         ],
+                                )
+            # df = pd.read_csv(f"complete/Montgomery County_SDAT_test.csv")
+            # # df_tax = pd.read_csv(f'complete/merged_complete_tax_{county_file_name}_data.csv')
+            #
+            # df['parcel_ID'] = df['district'].str.rpartition("-")[2]
+            # df['parcel_ID'] = df['parcel_ID'].str.strip()
+            # # s_accounts = list(df['account_no'].dropna().unique().astype(int))
+            # # t_accounts = df_tax['account_number'].dropna().astype(int).unique()
+            # # accounts = [str(a).zfill(8) for a in s_accounts if not a in t_accounts]
+            # accounts = list(df['parcel_ID'].dropna().unique())
 
-    # df = pd.read_csv(f"complete/Montgomery County_SDAT_test.csv")
-    # # df_tax = pd.read_csv(f'complete/merged_complete_tax_{county_file_name}_data.csv')
-    #
-    # df['parcel_ID'] = df['district'].str.rpartition("-")[2]
-    # df['parcel_ID'] = df['parcel_ID'].str.strip()
-    # # s_accounts = list(df['account_no'].dropna().unique().astype(int))
-    # # t_accounts = df_tax['account_number'].dropna().astype(int).unique()
-    # # accounts = [str(a).zfill(8) for a in s_accounts if not a in t_accounts]
-    # accounts = list(df['parcel_ID'].dropna().unique())
-
-    # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
-    main(data, accounts[start_index:end_index], path, start_index, end_index)
+            # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
+            main(data, accounts, path, start_index, end_index)
+            check = False
+        else:
+            log.info("===== WAITING TO UPDATE DATABASE ============")
+            print("============ WAITING TO UPDATE DATABASE ========== ")
+            time.sleep(3)
     print("=========== ended script =====================")

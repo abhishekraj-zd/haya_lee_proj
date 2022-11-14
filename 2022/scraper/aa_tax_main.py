@@ -19,10 +19,18 @@ from log_utils import create_log_object
 import mysql.connector
 
 
-connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+# connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+#                                          database='haya_lee',
+#                                          user='admin',
+#                                          password='Qwerty12345678')
+#
+# cursor_obj = connection_obj.cursor()
+
+
+connection_obj = mysql.connector.connect(host='localhost',
                                          database='haya_lee',
-                                         user='admin',
-                                         password='Qwerty12345678')
+                                         user='root',
+                                         password='12345678')
 
 cursor_obj = connection_obj.cursor()
 
@@ -212,29 +220,46 @@ if __name__ == '__main__':
     # db_data = cursor_obj.fetchone()
     # # log.info(db_data)
     # index_parcel_db = db_data[1] if db_data else 0
-    cursor_obj.execute(f'''SELECT distinct(AA_TABLE.district) FROM AA_TABLE  
-                            left JOIN aa_status ON AA_TABLE.district = aa_status.account WHERE aa_status.account IS NULL;''')
-    account_db = cursor_obj.fetchall()
-    accounts = [i[0] for i in account_db[start_index:end_index]]
-    # log.info(accounts)
-    # print("loading data into status table")
-    # for i in accounts:
-    #     cursor_obj.execute('''INSERT INTO aa_status (account,start_index,end_index,status)
-    #     VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
-    #     connection_obj.commit()
+    # WHILE(FLAG!=TRUE):
+    # SLEELCT * FROM SYN_AA_FLAG:
+    #UPDATE FLAG =FALSE
+    check = True
+    while check:
+        cursor_obj.execute('''SELECT flag FROM flag_table WHERE county_index = 0;''')
+        data = cursor_obj.fetchall()
 
-    print(f"loading data into status table for :{len(accounts)}")
-    query_data = []
-    for i in accounts:
-        query_data.append((i, start_index, end_index, "RUNNING"))
-    log.info(query_data)
-    query = '''INSERT INTO aa_status (account,start_index,end_index,status)
-           VALUES (%s,%s,%s,%s)'''
-    cursor_obj.executemany(query, query_data)
-    connection_obj.commit()
+        if data:
+            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = FALSE where county_index = 0;''')
+            cursor_obj.execute(f'''SELECT distinct(AA_TABLE.district) FROM AA_TABLE
+                                    left JOIN aa_status ON AA_TABLE.district = aa_status.account WHERE aa_status.account IS NULL;''')
+            account_db = cursor_obj.fetchall()
+            accounts = [i[0] for i in account_db[start_index:end_index]]
+        # log.info(accounts)
+        # print("loading data into status table")
+        # for i in accounts:
+        #     cursor_obj.execute('''INSERT INTO aa_status (account,start_index,end_index,status)
+        #     VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
+        #     connection_obj.commit()
 
-    print("data inserted in status table")
-    # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
-    main(accounts, path)
+            print(f"loading data into status table for :{len(accounts)}")
+            query_data = []
+            for i in accounts:
+                query_data.append((i, start_index, end_index, "RUNNING"))
+            log.info(query_data)
+            query = '''INSERT INTO aa_status (account,start_index,end_index,status)
+                   VALUES (%s,%s,%s,%s)'''
+            cursor_obj.executemany(query, query_data)
+            connection_obj.commit()
+        #UPDATE FLAG=TRUE
+
+            print("data inserted in status table")
+            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = TRUE where county_index = 0;''')
+        # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
+            main(accounts, path)
+            check = False
+        else:
+            log.info("===== WAITING TO UPDATE DATABASE ============")
+            print("============ WAITING TO UPDATE DATABASE ========== ")
+            time.sleep(3)
 
 

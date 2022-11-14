@@ -17,13 +17,19 @@ import numpy as np
 from functions import sdat_scraper as sdat
 import sqlite3
 import mysql.connector
-
+import time
 from log_utils import create_log_object
 
-connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+# connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+#                                          database='haya_lee',
+#                                          user='admin',
+#                                          password='Qwerty12345678')
+
+
+connection_obj = mysql.connector.connect(host='localhost',
                                          database='haya_lee',
-                                         user='admin',
-                                         password='Qwerty12345678')
+                                         user='root',
+                                         password='12345678')
 
 cursor_obj = connection_obj.cursor()
 
@@ -285,25 +291,40 @@ if __name__ == '__main__':
 
     county_file_name =  "pg"
     path = "complete/"
-    cursor_obj.execute(f'''SELECT distinct(PG_TABLE.account) FROM PG_TABLE  
-                            left JOIN pg_status ON PG_TABLE.account = pg_status.account WHERE pg_status.account IS NULL;''')
-    accounts_db = cursor_obj.fetchall()
-    accounts = [i[0] for i in accounts_db[start_index:end_index]]
-    print(f"loading data into status table for :{len(accounts)}")
-    query_data = []
-    for i in accounts:
-        query_data.append((i,start_index,end_index,"RUNNING"))
-        # cursor_obj.execute('''INSERT INTO pg_status (account,start_index,end_index,status)
-        # VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
-        # connection_obj.commit()
-    log.info(query_data)
-    query = '''INSERT INTO pg_status (account,start_index,end_index,status)
-        VALUES (%s,%s,%s,%s)'''
-    cursor_obj.executemany(query, query_data)
-    connection_obj.commit()
-    print("data inserted in status table")
-    # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
-    main(accounts, path, start_index, end_index, log)
+
+    check = True
+    while check:
+        cursor_obj.execute('''SELECT flag FROM flag_table WHERE county_index = 3;''')
+        data = cursor_obj.fetchall()
+
+        if data:
+            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = FALSE where county_index = 3;''')
+            cursor_obj.execute(f'''SELECT distinct(PG_TABLE.account) FROM PG_TABLE  
+                                    left JOIN pg_status ON PG_TABLE.account = pg_status.account WHERE pg_status.account IS NULL;''')
+            accounts_db = cursor_obj.fetchall()
+            accounts = [i[0] for i in accounts_db[start_index:end_index]]
+            print(f"loading data into status table for :{len(accounts)}")
+            query_data = []
+            for i in accounts:
+                query_data.append((i,start_index,end_index,"RUNNING"))
+                # cursor_obj.execute('''INSERT INTO pg_status (account,start_index,end_index,status)
+                # VALUES (%s,%s,%s,%s)''',(i,start_index,end_index,"RUNNING"))
+                # connection_obj.commit()
+            log.info(query_data)
+            query = '''INSERT INTO pg_status (account,start_index,end_index,status)
+                VALUES (%s,%s,%s,%s)'''
+            cursor_obj.executemany(query, query_data)
+            connection_obj.commit()
+            print("data inserted in status table")
+            cursor_obj.execute('''UPDATE TABLE flag_table SET flag = FALSE where county_index = 3;''')
+            # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
+            main(accounts, path, start_index, end_index, log)
+            check = False
+        else:
+            log.info("===== WAITING TO UPDATE DATABASE ============")
+            print("============ WAITING TO UPDATE DATABASE ========== ")
+            time.sleep(3)
+
     print("=================== script ended ===================")
 #%%
 
