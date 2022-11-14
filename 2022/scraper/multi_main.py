@@ -10,15 +10,20 @@ from functions import sdat_scraper as sdat
 from selenium.webdriver.common.keys import Keys
 import sqlite3
 import argparse
-
+from final import find_account_number
 from log_utils import create_log_object
 
 '''MY SQL CONNECTION'''
 
-connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+# connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
+#                                          database='haya_lee',
+#                                          user='admin',
+#                                          password='Qwerty12345678')
+
+connection_obj = mysql.connector.connect(host='localhost',
                                          database='haya_lee',
-                                         user='admin',
-                                         password='Qwerty12345678')
+                                         user='root',
+                                         password='12345678')
 
 cursor_obj = connection_obj.cursor()
 
@@ -287,6 +292,7 @@ def get_data(driver, county):
         bath = None
     if county == 0:
         table = "AA_TABLE"
+        parcel_id = find_account_number(district)
     elif county == 1:
         table = "MNT_TABLE"
     else:
@@ -516,7 +522,7 @@ def main_search(driver, search_terms, county, path, index_of_street, page, start
     time.sleep(3)
     sdat.select_option(driver, COUNTY_ID, U_COUNTIES, county)
     sdat.select_option(driver, METHOD_ID, SEARCH_METHOD, 0)
-    time.sleep(3)
+    # time.sleep(3)
     driver.find_element(By.CLASS_NAME, CONTINUE_CLASS).click()
     time.sleep(3)
     rand_sec = 5
