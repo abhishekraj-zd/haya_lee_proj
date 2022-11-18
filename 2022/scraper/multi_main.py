@@ -376,6 +376,7 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
         else:
             try:
                 WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.LINK_TEXT, f"{current_page}"))).click()
+                start_row = 0
                 log.info(f"Clicked on page {current_page}.")
                 time.sleep(10)
             except:
@@ -490,6 +491,8 @@ def loop_search_terms(driver, search_terms, data, rand_sec, STREET_NAME_ID, CONT
                     driver.delete_all_cookies()
                     sdat.go_back(driver, RESULT_PREVIOUS_ID)
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, STREET_NAME_ID))).clear()
+                    start_row = 0
+                    page = 1
                 except KeyboardInterrupt as e:
                     raise e
                 except Exception as e:
