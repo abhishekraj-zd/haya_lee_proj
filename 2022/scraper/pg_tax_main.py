@@ -316,7 +316,7 @@ if __name__ == '__main__':
             cursor_obj.executemany(query, query_data)
             connection_obj.commit()
             print("data inserted in status table")
-            cursor_obj.execute('''UPDATE flag_table SET flag = FALSE where county_index = 3;''')
+            cursor_obj.execute('''UPDATE flag_table SET flag = TRUE where county_index = 3;''')
             # main(np.array_split(accounts, 5)[arg_worker][arg_last_acc:], arg_worker, path)
             main(accounts, path, start_index, end_index, log)
             check = False
