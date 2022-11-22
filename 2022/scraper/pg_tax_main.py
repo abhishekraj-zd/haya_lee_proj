@@ -297,7 +297,7 @@ if __name__ == '__main__':
         cursor_obj.execute('''SELECT flag FROM flag_table WHERE county_index = 3;''')
         data = cursor_obj.fetchall()
 
-        if data:
+        if data[0][0] == 1:
             cursor_obj.execute('''UPDATE flag_table SET flag = FALSE where county_index = 3;''')
             cursor_obj.execute(f'''SELECT distinct(PG_TABLE.account) FROM PG_TABLE  
                                     left JOIN pg_status ON PG_TABLE.account = pg_status.account WHERE pg_status.account IS NULL;''')

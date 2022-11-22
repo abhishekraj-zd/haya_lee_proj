@@ -310,8 +310,8 @@ if __name__ == '__main__':
         cursor_obj.execute('''SELECT flag FROM flag_table WHERE county_index = 1;''')
         data = cursor_obj.fetchall()
 
-        if data:
-            cursor_obj.execute('''UPDATEflag_table SET flag = FALSE where county_index = 1;''')
+        if data[0][0] == 1:
+            cursor_obj.execute('''UPDATE flag_table SET flag = FALSE where county_index = 1;''')
     # cursor_obj.execute(f'''SELECT DISTINCT account FROM MNT_TABLE;''')
             cursor_obj.execute(f'''SELECT distinct(MNT_TABLE.account) FROM MNT_TABLE  
                                     left JOIN mnt_status ON trim(MNT_TABLE.account) = trim(mnt_status.account) WHERE mnt_status.account IS NULL;''')

@@ -228,7 +228,7 @@ if __name__ == '__main__':
         cursor_obj.execute('''SELECT flag FROM flag_table WHERE county_index = 0;''')
         data = cursor_obj.fetchall()
 
-        if data:
+        if data[0][0] == 1:
             cursor_obj.execute('''UPDATE flag_table SET flag = FALSE where county_index = 0;''')
             cursor_obj.execute(f'''SELECT distinct(AA_TABLE.district) FROM AA_TABLE
                                     left JOIN aa_status ON AA_TABLE.district = aa_status.account WHERE aa_status.account IS NULL;''')
