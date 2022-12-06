@@ -13,6 +13,7 @@ import argparse
 from final import find_account_number
 from log_utils import create_log_object
 
+data_list = []
 '''MY SQL CONNECTION'''
 
 # connection_obj = mysql.connector.connect(host='database-1.ckd6qdeu3wza.ap-northeast-1.rds.amazonaws.com',
@@ -129,6 +130,7 @@ class catchtime:
 
 def get_data(driver, county):
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, DISTRICT_ID)))
+    global data_list
     try:
         district = driver.find_element(By.ID, DISTRICT_ID).text
     except:
@@ -297,20 +299,92 @@ def get_data(driver, county):
         table = "MNT_TABLE"
     else:
         table = "PG_TABLE"
-    parcel_id ='0'
-    maryland_sql = f'''INSERT INTO {table} 
-                        (district,account,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath,parcel_id)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'''
-    maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath,parcel_id)
-    if use.upper() not in use_restrict_list:
-        try:
-            cursor_obj.execute(maryland_sql, maryland_data)
-            # connection_obj.commit()
-        except Exception as e:
-            print(cursor_obj.statement)
-            raise e
-
-        log.info("===================== DATA ADDED TO DATABASE =============================")
+    # parcel_id ='0'
+    # maryland_sql = f'''INSERT INTO {table}
+    #                     (district,account,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath,parcel_id)
+    #                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'''
+    # maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath,parcel_id)
+    # if use.upper() not in use_restrict_list:
+    #     try:
+    #         cursor_obj.execute(maryland_sql, maryland_data)
+    #         # connection_obj.commit()
+    #     except Exception as e:
+    #         print(cursor_obj.statement)
+    #         raise e
+    #
+    #     log.info("===================== DATA ADDED TO DATABASE =============================")
+    if county == 0:
+        table = "AA_TABLE"
+        parcel_id = find_account_number(district)
+        data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name,
+                owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel,
+                block_id, subdivision, plat_id, structure_built, living_area, land_area, basement,
+                finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price,
+                transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath,
+                parcel_id)
+        if use.upper() not in use_restrict_list:
+            data_list.append(data)
+        maryland_sql = f'''INSERT INTO {table} 
+                                (district,account,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath,parcel_id)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'''
+        # maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath,parcel_id)
+        maryland_data = data_list
+        if len(maryland_data) == 5:
+            try:
+                cursor_obj.executemany(maryland_sql, maryland_data)
+                connection_obj.commit()
+                data_list = []
+                log.info("===================== DATA ADDED TO DATABASE =============================")
+            except Exception as e:
+                print("error ",e)
+                print(cursor_obj.statement)
+                raise e
+    elif county == 1:
+        table = "MNT_TABLE"
+        data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name,
+                owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel,
+                block_id, subdivision, plat_id, structure_built, living_area, land_area, basement,
+                finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price,
+                transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath)
+        if use.upper() not in use_restrict_list:
+            data_list.append(data)
+        maryland_sql = f'''INSERT INTO {table} 
+                                (district,parcel_ID,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'''
+        # maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath,parcel_id)
+        maryland_data = data_list
+        if len(maryland_data) == 5:
+            try:
+                cursor_obj.executemany(maryland_sql, maryland_data)
+                connection_obj.commit()
+                data_list = []
+                log.info("===================== DATA ADDED TO DATABASE =============================")
+            except Exception as e:
+                print(cursor_obj.statement)
+                raise e
+    else:
+        table = "PG_TABLE"
+        data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name,
+                owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel,
+                block_id, subdivision, plat_id, structure_built, living_area, land_area, basement,
+                finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price,
+                transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath)
+        if use.upper() not in use_restrict_list:
+            data_list.append(data)
+        maryland_sql = f'''INSERT INTO {table} 
+                                (district,parcel_ID,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'''
+        # maryland_data = (district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath,parcel_id)
+        maryland_data = data_list
+        if len(maryland_data) == 5:
+            try:
+                cursor_obj.executemany(maryland_sql, maryland_data)
+                connection_obj.commit()
+                data_list = []
+                log.info("===================== DATA ADDED TO DATABASE =============================")
+            except Exception as e:
+                print(cursor_obj.statement)
+                raise e
     return district, str(account_no), owner_name_1_last_name, owner_name_1_first_name, owner_name_2_last_name, owner_name_2_first_name, mailing, premises, use, principal_residence, deed_reference, map_id, parcel, block_id, subdivision, plat_id, structure_built, living_area, land_area, basement, finished_basement_area, land_value, improvement_value, assessed_value, seller, date, price, transfer_type, homestead_application_status, homeowner_tax_credit, legal_description, stories, bath
 
 def run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, street, page, start_row, start, end):
@@ -365,7 +439,12 @@ def get_data_in_all_pages(data, driver, total_pages, DETAILS_PREVIOUS_ID, search
     #     driver.find_element(By.LINK_TEXT, str(current_page)).click()
     #     time.sleep(5)
     log.info(f"CURRENT PAGE : {current_page}")
-
+    try:
+        driver.find_element(By.LINK_TEXT, str(current_page)).click()
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID,
+                                                                    'cphMainContentArea_ucSearchType_wzrdRealPropertySearch_ucSearchResult_gv_SearchResult_txtOwnerName_1')))
+    except:
+        pass
     while total_pages >= current_page:
         data, last_row = run_loop(data, driver, DETAILS_PREVIOUS_ID, county, path, index_of_street, search_term,current_page, start_row, start, end)
 
