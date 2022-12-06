@@ -23,7 +23,7 @@ from log_utils import create_log_object
 connection_obj = mysql.connector.connect(host='localhost',
                                          database='haya_lee',
                                          user='root',
-                                         password='12345678')
+                                         password='1234')
 
 cursor_obj = connection_obj.cursor()
 
@@ -119,9 +119,10 @@ def get_data(driver):
         account_number =  driver.find_element(By.ID, ACCOUNT_NO_ID).text
     except:
         account_number = None
-    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
-    log.info(f" sql data : {(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage, 'DONE')}")
-    cursor_obj.execute(sql_tax,(account_number,owner, tax_amount, tax_period, lot, class_id, mortgage, "DONE"))
+    tax_lien_status = "NO"
+    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
+    cursor_obj.execute(sql_tax,
+                       (account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage # detail_address, prop_address, occupancy, block, district, sub
 
@@ -179,8 +180,9 @@ def get_data_lien(driver):
         account_number = driver.find_element(By.ID, "lblParcelCode").text
     except:
         account_number = None
-    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage) VALUES (%s,%s,%s,%s,%s,%s,%s) '''
-    cursor_obj.execute(sql_tax,(account_number, owner, tax_amount, tax_period, lot, class_id, mortgage))
+    tax_lien_status = "YES"
+    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
+    cursor_obj.execute(sql_tax,(account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage  # detail_address, prop_address, occupancy, block, district, sub
 
@@ -232,13 +234,15 @@ def main(data, accounts, path, start_index, end_index):
                 try:
                     WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")))
                     table_rows = driver.find_elements(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
-                    table_rows[1].find_elements(By.TAG_NAME, "td")[1].click()
+                    table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
+                    time.sleep(3)
                     data.loc[len(data)] = get_data_lien(driver)
                 except:
                 # view_details(driver)
                     WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")))
                     table_rows = driver.find_elements(By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")
                     table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
+                    time.sleep(3)
                     data.loc[len(data)] = get_data(driver)
                 searched.append(account)
                 log.info(f'{len(data)} account done')
@@ -307,14 +311,15 @@ if __name__ == '__main__':
 
     check = True
     while check:
+        print(f"about to check database")
         cursor_obj.execute('''SELECT flag FROM flag_table WHERE county_index = 1;''')
         data = cursor_obj.fetchall()
-
+        print(f"flag : {data[0][0]}")
         if data[0][0] == 1:
             cursor_obj.execute('''UPDATE flag_table SET flag = FALSE where county_index = 1;''')
     # cursor_obj.execute(f'''SELECT DISTINCT account FROM MNT_TABLE;''')
-            cursor_obj.execute(f'''SELECT distinct(MNT_TABLE.account) FROM MNT_TABLE  
-                                    left JOIN mnt_status ON trim(MNT_TABLE.account) = trim(mnt_status.account) WHERE mnt_status.account IS NULL;''')
+            cursor_obj.execute(f'''SELECT distinct(MNT_TABLE.parcel_ID) FROM MNT_TABLE  
+                                    left JOIN mnt_status ON trim(MNT_TABLE.parcel_ID) = trim(mnt_status.account) WHERE mnt_status.account IS NULL;''')
             accounts_db = cursor_obj.fetchall()
             accounts = [i[0] for i in accounts_db[start_index:end_index] ]
             query_data = []
@@ -363,5 +368,5 @@ if __name__ == '__main__':
         else:
             log.info("===== WAITING TO UPDATE DATABASE ============")
             print("============ WAITING TO UPDATE DATABASE ========== ")
-            time.sleep(3)
+            time.sleep(10)
     print("=========== ended script =====================")
