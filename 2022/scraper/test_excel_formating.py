@@ -11,7 +11,7 @@ import mysql.connector
 connection_obj = mysql.connector.connect(host='localhost',
                                          database='haya_lee',
                                          user='root',
-                                         password='12345678')
+                                         password='1234')
 
 cursor_obj = connection_obj.cursor()
 
@@ -36,9 +36,9 @@ def load_merge(table_name, county_index):
                                      'stories', 'bath', 'parcel_ID'])
     elif county_index == 1:
         # tax_query = f'''SELECT DISTINCT parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, status FROM {table_name}_TAX;'''
-        tax_query = f'''select distinct mnt_tax.parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status, tax_lien_amount from mnt_tax left join mnt_table on trim(mnt_tax.parcel_ID) = trim(mnt_table.parcel_ID) where mnt_table.parcel_ID is not NULL;'''
+        tax_query = f'''select distinct mnt_tax.parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status, tax_lien_amount, tax_year from mnt_tax left join mnt_table on trim(mnt_tax.parcel_ID) = trim(mnt_table.parcel_ID) where mnt_table.parcel_ID is not NULL;'''
         cursor_obj.execute(tax_query)
-        tax = pd.DataFrame(cursor_obj.fetchall(), columns=['parcel_ID', 'owner', 'tax_amount', 'tax_period', 'lot', 'class_id', 'mortgage', 'tax_lien_status', 'existing_tax_lien_amount'])
+        tax = pd.DataFrame(cursor_obj.fetchall(), columns=['parcel_ID', 'owner', 'tax_amount', 'tax_period', 'lot', 'class_id', 'mortgage', 'tax_lien_status', 'existing_tax_lien_amount', 'tax_year(levy_year)'])
 
         # sdat_query = f'''SELECT DISTINCT district,parcel_ID,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath FROM {table_name}_TABLE WHERE `use` not in ("COMMERCIAL", "INDUSTRIAL", "AGRICULTURE", "APARTMENT", "CONDOMINIUM", "COMMERCIAL CONDOMINIUM");'''
         sdat_query = f'''select distinct district, mnt_table.parcel_ID,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath from mnt_table left join mnt_tax on trim(mnt_table.parcel_ID) = trim(mnt_tax.parcel_ID) where mnt_tax.parcel_ID is not NULL;'''
@@ -379,7 +379,8 @@ if __name__ == '__main__':
                          'ip',
                          'amount',
                          'tax_lien_status',
-                         'existing_tax_lien_amount'
+                         'existing_tax_lien_amount',
+                         'tax_year(levy_year)'
                          ]
 
         if arg_county == 0:

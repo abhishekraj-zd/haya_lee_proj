@@ -66,7 +66,7 @@ SUB_ID = 'ctl00_MainContent_lblSub'
 CLASS_ID = 'ctl00_MainContent_lblClass'
 CANCEL_POP_XPATH = '//*[@id="acsMainInvite"]/div/a[1]'
 #%% 
-def get_data(driver):
+def get_data(driver, tax_year):
     try: 
         owner = driver.find_element(By.ID, OWNER_ID).text
     except: 
@@ -120,14 +120,14 @@ def get_data(driver):
     except:
         account_number = None
     tax_lien_status = "NO"
-    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
+    sql_tax = '''INSERT INTO mnt_tax ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount, tax_year) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, %s) '''
     cursor_obj.execute(sql_tax,
-                       (account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,0))
+                       (account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,0, tax_year))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage # detail_address, prop_address, occupancy, block, district, sub
 
 
-def get_data_lien(driver,tax_amount):
+def get_data_lien(driver,tax_amount, tax_year):
     try:
         owner = driver.find_element(By.ID, "lblarbh_name").text
     except:
@@ -181,8 +181,8 @@ def get_data_lien(driver,tax_amount):
     except:
         account_number = None
     tax_lien_status = "YES"
-    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
-    cursor_obj.execute(sql_tax,(account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount))
+    sql_tax = '''INSERT INTO mnt_tax ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount, tax_year) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, %s) '''
+    cursor_obj.execute(sql_tax,(account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount, tax_year))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage  # detail_address, prop_address, occupancy, block, district, sub
 
@@ -235,16 +235,18 @@ def main(data, accounts, path, start_index, end_index):
                     WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")))
                     table_rows = driver.find_elements(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
                     tax_amount = driver.find_element(By.ID, "ctl00_MainContent_grdParcel_ctl02_Label1").text
+                    tax_year = driver.find_element(By.CSS_SELECTOR, "#aspnetForm > section > div > div.row > div.container > div:nth-child(4) > table > tbody > tr:nth-child(2) > td:nth-child(1)")[0].text
                     table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
                     time.sleep(3)
-                    data.loc[len(data)] = get_data_lien(driver,tax_amount)
+                    data.loc[len(data)] = get_data_lien(driver,tax_amount, tax_year)
                 except:
                 # view_details(driver)
                     WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")))
                     table_rows = driver.find_elements(By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")
+                    tax_year = driver.find_elements(By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr:nth-child(2) > td:nth-child(1)")[0].text
                     table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
                     time.sleep(3)
-                    data.loc[len(data)] = get_data(driver)
+                    data.loc[len(data)] = get_data(driver, tax_year)
                 searched.append(account)
                 log.info(f'{len(data)} account done')
                 cursor_obj.execute(f'''UPDATE mnt_status SET status = "DONE" WHERE account = "{account}"''')
@@ -252,10 +254,10 @@ def main(data, accounts, path, start_index, end_index):
             except Exception as e:
                 log.info(e)
                 log.info("No data. Moving on..")
-                cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index) VALUES (%s,%s,%s,%s,%s);''',
-                                   (account, accounts.index(account), "NO_DATA", start_index, end_index))
-                connection_obj.commit()
-                log.info(f"DATA IN MNT_RETRY TABLE : {(account, accounts.index(account), 'NO_DATA')}")
+                # cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index) VALUES (%s,%s,%s,%s,%s);''',
+                #                    (account, accounts.index(account), "NO_DATA", start_index, end_index))
+                # connection_obj.commit()
+                # log.info(f"DATA IN MNT_RETRY TABLE : {(account, accounts.index(account), 'NO_DATA')}")
                 cursor_obj.execute(f'''UPDATE mnt_status SET status = "NO_DATA" WHERE account = "{account}"''')
                 connection_obj.commit()
                 new_search(driver)
@@ -281,10 +283,10 @@ def main(data, accounts, path, start_index, end_index):
                 data.to_csv(f'{path}backup_pg_tax_{len(searched)}_{len(accounts)}.csv') # add worker
                 log.info("Something went wrong. Skipping account..")
                 print((account, accounts.index(account), "ERROR", start_index, end_index))
-                cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index)
-                 VALUES (%s,%s,%s,%s,%s);''',(account, accounts.index(account), "ERROR", start_index, end_index))
-                connection_obj.commit()
-                log.info(f"DATA IN  MNT_RETRY TABLE : {(account, accounts.index(account), 'ERROR')}")
+                # cursor_obj.execute('''INSERT INTO MNT_RETRY (parcel_id,index_parcel,status,start_index,end_index)
+                #  VALUES (%s,%s,%s,%s,%s);''',(account, accounts.index(account), "ERROR", start_index, end_index))
+                # connection_obj.commit()
+                # log.info(f"DATA IN  MNT_RETRY TABLE : {(account, accounts.index(account), 'ERROR')}")
                 cursor_obj.execute(f'''UPDATE mnt_status SET status = "ERROR" WHERE account = "{account}"''')
                 connection_obj.commit()
                 sdat.open_website(driver, URL)
