@@ -36,9 +36,9 @@ def load_merge(table_name, county_index):
                                      'stories', 'bath', 'parcel_ID'])
     elif county_index == 1:
         # tax_query = f'''SELECT DISTINCT parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, status FROM {table_name}_TAX;'''
-        tax_query = f'''select distinct mnt_tax.parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, status from mnt_tax left join mnt_table on trim(mnt_tax.parcel_ID) = trim(mnt_table.parcel_ID) where mnt_table.parcel_ID is not NULL;'''
+        tax_query = f'''select distinct mnt_tax.parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status, tax_lien_amount from mnt_tax left join mnt_table on trim(mnt_tax.parcel_ID) = trim(mnt_table.parcel_ID) where mnt_table.parcel_ID is not NULL;'''
         cursor_obj.execute(tax_query)
-        tax = pd.DataFrame(cursor_obj.fetchall(), columns=['parcel_ID', 'owner', 'tax_amount', 'tax_period', 'lot', 'class_id', 'mortgage', 'status'])
+        tax = pd.DataFrame(cursor_obj.fetchall(), columns=['parcel_ID', 'owner', 'tax_amount', 'tax_period', 'lot', 'class_id', 'mortgage', 'tax_lien_status', 'existing_tax_lien_amount'])
 
         # sdat_query = f'''SELECT DISTINCT district,parcel_ID,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath FROM {table_name}_TABLE WHERE `use` not in ("COMMERCIAL", "INDUSTRIAL", "AGRICULTURE", "APARTMENT", "CONDOMINIUM", "COMMERCIAL CONDOMINIUM");'''
         sdat_query = f'''select distinct district, mnt_table.parcel_ID,owner_1_first_name,owner_1_last_name,owner_2_first_name,owner_2_last_name,mailing,premises,`use`,principal_residence,deed_reference,map_id,parcel,block,subdivision,plat_id,structure_built,living_area,land_area,basement,finished_basement_area,land_value,improvement_value,assessed_value,seller,date,price,transfer_type,homestead_application_status,homeowner_tax_credit,legal_description,stories,bath from mnt_table left join mnt_tax on trim(mnt_table.parcel_ID) = trim(mnt_tax.parcel_ID) where mnt_tax.parcel_ID is not NULL;'''
@@ -377,14 +377,16 @@ if __name__ == '__main__':
                          'bid_amount',
                          'base',
                          'ip',
-                         'amount'
+                         'amount',
+                         'tax_lien_status',
+                         'existing_tax_lien_amount'
                          ]
 
         if arg_county == 0:
             final_columns = [e for e in total_columns if e not in (
             'block', 'tax_period', 'lot', 'sub', 'occupancy', 'mortgage', 'prop_address', 'detail_address', 'tax_sale',
             'class_id', 'attorney_name', 'attorney_phone', 'purchaser_name', 'equity_case_no', 'bid_amount', 'base',
-            'ip', 'amount')]  # class_id
+            'ip', 'amount','tax_lien_status', 'tax_lien_amount')]  # class_id
         elif arg_county == 1:
             final_columns = [e for e in total_columns if e not in (
             'tax_month', 'tax_sale', 'prop_address', 'detail_address', 'occupancy', 'account', 'attorney_name',
@@ -392,7 +394,7 @@ if __name__ == '__main__':
         elif arg_county == 2:
             final_columns = [e for e in total_columns if e not in (
             'tax_period', 'lot', 'sub', 'class_id', 'occupancy', 'mortgage', 'prop_address', 'account',
-            'detail_address')]
+            'detail_address','tax_lien_status','tax_lien_amount')]
         # print(final_columns)
         final_df = merged_df[final_columns]
         print(final_df)

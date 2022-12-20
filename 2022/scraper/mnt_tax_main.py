@@ -120,22 +120,22 @@ def get_data(driver):
     except:
         account_number = None
     tax_lien_status = "NO"
-    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
+    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
     cursor_obj.execute(sql_tax,
-                       (account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status))
+                       (account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,0))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage # detail_address, prop_address, occupancy, block, district, sub
 
 
-def get_data_lien(driver):
+def get_data_lien(driver,tax_amount):
     try:
         owner = driver.find_element(By.ID, "lblarbh_name").text
     except:
         owner = None
     try:
-        tax_amount = driver.find_element(By.ID, "lblsales").text
+        tax_lien_amount = driver.find_element(By.ID, "lblsales").text
     except:
-        tax_amount = None
+        tax_lien_amount = None
     try:
         tax_period = driver.find_element(By.ID, TAX_PERIOD_ID).text
     except:
@@ -181,8 +181,8 @@ def get_data_lien(driver):
     except:
         account_number = None
     tax_lien_status = "YES"
-    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
-    cursor_obj.execute(sql_tax,(account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status))
+    sql_tax = '''INSERT INTO MNT_TAX ( parcel_ID, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) '''
+    cursor_obj.execute(sql_tax,(account_number, owner, tax_amount, tax_period, lot, class_id, mortgage, tax_lien_status,tax_lien_amount))
     connection_obj.commit()
     return account_number, owner, tax_amount, tax_period, lot, class_id, mortgage  # detail_address, prop_address, occupancy, block, district, sub
 
@@ -234,9 +234,10 @@ def main(data, accounts, path, start_index, end_index):
                 try:
                     WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")))
                     table_rows = driver.find_elements(By.CSS_SELECTOR, ".tblReptorcls > tbody > tr")
+                    tax_amount = driver.find_element(By.ID, "ctl00_MainContent_grdParcel_ctl02_Label1").text
                     table_rows[1].find_elements(By.TAG_NAME, "td")[-1].click()
                     time.sleep(3)
-                    data.loc[len(data)] = get_data_lien(driver)
+                    data.loc[len(data)] = get_data_lien(driver,tax_amount)
                 except:
                 # view_details(driver)
                     WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ctl00_MainContent_grdParcel > tbody > tr")))
@@ -317,9 +318,9 @@ if __name__ == '__main__':
         print(f"flag : {data[0][0]}")
         if data[0][0] == 1:
             cursor_obj.execute('''UPDATE flag_table SET flag = FALSE where county_index = 1;''')
-    # cursor_obj.execute(f'''SELECT DISTINCT account FROM MNT_TABLE;''')
-            cursor_obj.execute(f'''SELECT distinct(MNT_TABLE.parcel_ID) FROM MNT_TABLE  
-                                    left JOIN mnt_status ON trim(MNT_TABLE.parcel_ID) = trim(mnt_status.account) WHERE mnt_status.account IS NULL;''')
+    # cursor_obj.execute(f'''SELECT DISTINCT account FROM mnt_table;''')
+            cursor_obj.execute(f'''SELECT distinct(mnt_table.parcel_ID) FROM mnt_table  
+                                    left JOIN mnt_status ON trim(mnt_table.parcel_ID) = trim(mnt_status.account) WHERE mnt_status.account IS NULL;''')
             accounts_db = cursor_obj.fetchall()
             accounts = [i[0] for i in accounts_db[start_index:end_index] ]
             query_data = []
