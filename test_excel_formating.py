@@ -9,7 +9,7 @@ from tqdm import tqdm
 import mysql.connector
 
 connection_obj = mysql.connector.connect(host='localhost',
-                                         database='haya_lee',
+                                         database='property_tax',
                                          user='root',
                                          password='1234')
 
