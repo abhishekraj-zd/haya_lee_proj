@@ -37,7 +37,7 @@ pool = mysql.connector.pooling.MySQLConnectionPool(
             port=3306,
             user="root",
             password="1234",
-            db='haya_lee'
+            db='property_tax'
             )
 connection_obj = pool.get_connection()
 
