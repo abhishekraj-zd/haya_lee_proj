@@ -25,21 +25,21 @@ from thread_test import test_csv
 # from multi_main import multi_main_fn
 # start = time.time()
 try :
-    data_1 = test_1.delay(0,0,100)
+    data_1 = test_1.delay(0,0,1500)
     # data_1 = test_1.delay(0,0,5)
 except Exception as e:
     print("Error >>>>> ",e)
 try:
-    data_2 = test_2.delay(0,100,200)
+    data_2 = test_2.delay(0,1500,3000)
     # data_2 = test_2.delay(0,6,10)
 except Exception as e:
     print("Error >>>>> ", e)
 try:
-    data_3 = test_3.delay(0,200,300)
+    data_3 = test_3.delay(0,3000,4500)
 except Exception as e:
     print("Error >>>>> ", e)
 try:
-    data_4 = test_4.delay(0,300,400)
+    data_4 = test_4.delay(0,4500,6000)
 except Exception as e:
     print("Error >>>>> ", e)
 # try:
@@ -53,19 +53,19 @@ except Exception as e:
 
 
 try :
-    data_7 = test_7.delay(1,0,100)
+    data_7 = test_7.delay(1,0,1500)
 except Exception as e:
     print("Error >>>>> ", e)
 try:
-    data_8 = test_8.delay(1,100,200)
+    data_8 = test_8.delay(1,1500,3000)
 except Exception as e:
     print("Error >>>>> ", e)
 try:
-    data_9 = test_9.delay(1,200,300)
+    data_9 = test_9.delay(1,3000,4500)
 except Exception as e:
     print("Error >>>>> ", e)
 try:
-    data_10 = test_10.delay(1,300,400)
+    data_10 = test_10.delay(1,4500,6000)
 except Exception as e:
     print("Error >>>>> ", e)
 # try:
@@ -79,19 +79,19 @@ except Exception as e:
 
 
 try :
-    data_13 = test_13.delay(2,0,100)
+    data_13 = test_13.delay(2,0,1500)
 except Exception as e:
     print("Error >>>>> ", e)
 try:
-    data_14 = test_14.delay(2,100,200)
+    data_14 = test_14.delay(2,1500,3000)
 except Exception as e:
     print("Error >>>>> ", e)
 try:
-    data_15 = test_15.delay(2,200,300)
+    data_15 = test_15.delay(2,3000,4500)
 except Exception as e:
     print("Error >>>>> ", e)
 try:
-    data_16 = test_16.delay(2,300,400)
+    data_16 = test_16.delay(2,4500,6000)
 except Exception as e:
     print("Error >>>>> ", e)
 # try:
